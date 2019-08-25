@@ -125,11 +125,21 @@ data = data.drop(columns=['MoSold', 'YrSold'])
 
 # 1.2 Handle missing values
 
-sum(pd.isna(data['MSSubClass']))
-pd.DataFrame.describe(data['MSSubClass'])
-freq = data['MSSubClass'].value_counts()
+col_miss = pd.DataFrame(np.sum(pd.isna(data), axis=0),
+                        columns=['N_missing'])
 
-data['MSZoning'] = data['MSZoning'].astype('category')
+col_miss = col_miss[col_miss['N_missing'] > 0]
+
+# Delete rows with all missing values
+
+cols = col_miss[col_miss['N_missing'] == data.shape[0]]
+data = data.drop(columns = cols.index)
+
+# Update missing
+
+col_miss = col_miss[col_miss['N_missing'] != data.shape[0]]
+
+
 
 # TO DO
 # Divide trainset into Train (60%), Cross Validation (20%), Test Set (20%)
