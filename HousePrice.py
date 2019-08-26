@@ -2,6 +2,7 @@
 import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
+import seaborn as sns
 
 # Import train dataset
 data = pd.read_csv('train.csv')
@@ -44,17 +45,39 @@ def summary_stats_category(X):
 
     plt.show()
 
-# bivariate distribution with the predictor
 
-# correlation and PCA
+def summary_stats_numeric(X):
+    '''
+    Plot summary stats together with univariate distribution.
+    Input: numerical variable
+    Output: plot and summary stats
+    '''
+
+    # Remove missing
+    X = X.dropna()
+    # X['LotFrontage']
+    #
+
+    # Create a figure instance, and the two subplots
+    fig = plt.figure()
+    fig.suptitle('Univariate distribution & descriptive statistics\n{}'.format(
+        round(pd.DataFrame.describe(X),2)))
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+    fig.subplots_adjust(top=0.75)
+
+    # Plot on ax1 with the ax argument
+    sns.boxplot(X, ax=ax1)
+    sns.distplot(X, ax=ax2)
+
+    plt.show()
 
 # 2. DATA PREPROCESSING
 
-# 2.1 Handle missing values
+# 2.1 Features Encoding
 
 # For the categories >> substitute all NA with NoFeature
 # instead of missing it becomes 'No feature'
-
 
 values = {'Alley': 'NoFeature', 'BsmtQual': 'NoFeature',
           'BsmtCond': 'NoFeature', 'BsmtExposure': 'NoFeature',
@@ -70,10 +93,7 @@ X = X.fillna(value=values)
 # Check for missing values on the output
 np.sum(pd.isna(y))
 
-# 2.2 Features Encoding
-
-# Adjust for categorical variables
-
+# Encode categorical variables
 # check if values are included
 
 cat_list = ['MSSubClass', 'MSZoning', 'Street', 'Alley', 'LotShape',
@@ -112,8 +132,8 @@ for i in year_list:
     X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
 
 # Visual inspection
-for i in year_list:
-    summary_stats_category(X[i])
+# for i in year_list:
+#    summary_stats_category(X[i])
 
 # Adjust for ordered categorical variables
 order = pd.api.types.CategoricalDtype(['NoFeature',
@@ -184,29 +204,40 @@ for i in ord_list:
     X[i] = X[i].astype(order)
 
 # Visual inspection
-#for i in ord_list:
+# for i in ord_list:
 #    summary_stats_category(X[i])
 
-
-# TO DO
+# 2.2 Handle missing values
 
 col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
                         columns=['N_missing'])
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
 
-# Delete rows with all missing values
+# TO DO 
+# 1. imput missing 
+# https://scikit-learn.org/stable/modules/impute.html#impute
 
-cols = col_miss[col_miss['N_missing'] == data.shape[0]]
-data = data.drop(columns=cols.index)
 
-# Update missing
+# DATA RELATIONSHIP INVESTIGATION 
+# (Knowing your data and the relationship between them)
+# bivariate distribution with the predictor
 
-col_miss = col_miss[col_miss['N_missing'] != data.shape[0]]
+# correlation and PCA
+
+
+# 2.3 Feature Normalization
+
+# 2.3.1 Log transformation
+# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
+
+sns.distplot(np.log(y))
+plt.show()
 
 
 # TO DO
 # FEATURE ENGINEERING
+# boxplot by categories
 #X['MoYrSold'] = X['MoSold'].map(str) + '-' + X['YrSold'].map(str)
 #X['MoYrSold'] = pd.to_datetime(X['MoYrSold'], format='%m-%Y')
 
