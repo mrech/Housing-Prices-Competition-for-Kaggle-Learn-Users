@@ -3,8 +3,10 @@ import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
 import seaborn as sns
+from sklearn.impute import SimpleImputer
 
 # Import train dataset
+# Alternatuive: keep_default_na = False
 data = pd.read_csv('train.csv')
 
 # variables
@@ -13,6 +15,9 @@ data.columns
 # Devide input features from output feature
 X = data.iloc[::, :-1]
 y = data.loc[:, 'SalePrice']
+
+# Remove index Id
+X = X.drop(['Id'], axis = 1)
 
 # return dtypes in data
 X.dtypes
@@ -71,6 +76,15 @@ def summary_stats_numeric(X):
     sns.distplot(X, ax=ax2)
 
     plt.show()
+
+def bivariate_distr_categorical(X):
+    '''
+    Plot relationship beween the categorical variable and the target variable
+    Input: categorical variable 
+    ''' 
+    sns.boxplot(X, y)
+    plt.show()
+
 
 # 2. DATA PREPROCESSING
 
@@ -214,28 +228,72 @@ col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
 
-# TO DO 
-# 1. imput missing 
-# https://scikit-learn.org/stable/modules/impute.html#impute
-
+# 2.2. imput missing 
 
 # DATA RELATIONSHIP INVESTIGATION 
 # (Knowing your data and the relationship between them)
 # bivariate distribution with the predictor
 
-# correlation and PCA
+#summary_stats_category(X['MasVnrType'])
+#bivariate_distr_categorical(X['Electrical'])
+#summary_stats_numeric(X['MasVnrArea'])
+#summary_stats_category(X['Electrical'])
 
+# Input top frequency category checking for price range
+# NOTE: Imputation of missing needs to be the same in the test set
+# Generalize for all categorical (test set - we can other missing categories)
+
+imp_cat_miss = SimpleImputer(strategy='most_frequent')
+cat_var = X.select_dtypes(include=['category']).columns
+imp_cat_miss = imp_cat_miss.fit(X[cat_var])
+
+X[cat_var] = imp_cat_miss.transform(X[cat_var])
+
+summary_stats_numeric(X['LotFrontage'])
+
+# Generalize for all numerical
+# assign median value to missing in LotFrontage
+
+num_var = X.select_dtypes(include=['int', 'float']).columns
+imp_num_miss = SimpleImputer(missing_values=np.nan, strategy='median')
+imp_num_miss = imp_num_miss.fit(X[num_var])
+
+X[num_var] = imp_num_miss.transform(X[num_var])
+
+# scatterplot of two variable, regression line and 95% confidence
+# Adjust for OUTLIERS
+#for i in num_var:
+#    sns.regplot(X[i], y)
+#    plt.show()
+
+# compute correlation matrix
+corr = X.corr()
+
+# Generate a mask for the upper triangle
+mask = np.zeros_like(corr, dtype=np.bool)
+mask[np.tril_indices_from(mask)] = True
+
+# Set up plt figure
+fig, ax = plt.subplots(figsize=(50,100))
+
+# Generate a custom diverging colormap
+cmap = sns.diverging_palette(220, 10, as_cmap=True)
+
+# Draw the heatmap with the mask
+# Adjust for COLLINEARITY
+sns.heatmap(corr, mask=mask, cmap=cmap, center=0, linewidths=.5)
+plt.xticks(rotation = 90)
+plt.yticks(rotation = 45)
+plt.show()
 
 # 2.3 Feature Normalization
 
-# 2.3.1 Log transformation
-# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 
-sns.distplot(np.log(y))
-plt.show()
 
 
 # TO DO
+# 2.3.1 Log transformation
+# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # FEATURE ENGINEERING
 # boxplot by categories
 #X['MoYrSold'] = X['MoSold'].map(str) + '-' + X['YrSold'].map(str)
