@@ -17,7 +17,7 @@ X = data.iloc[::, :-1]
 y = data.loc[:, 'SalePrice']
 
 # Remove index Id
-X = X.drop(['Id'], axis = 1)
+X = X.drop(['Id'], axis=1)
 
 # return dtypes in data
 X.dtypes
@@ -66,7 +66,7 @@ def summary_stats_numeric(X):
     # Create a figure instance, and the two subplots
     fig = plt.figure()
     fig.suptitle('Univariate distribution & descriptive statistics\n{}'.format(
-        round(pd.DataFrame.describe(X),2)))
+        round(pd.DataFrame.describe(X), 2)))
     ax1 = fig.add_subplot(121)
     ax2 = fig.add_subplot(122)
     fig.subplots_adjust(top=0.75)
@@ -77,11 +77,12 @@ def summary_stats_numeric(X):
 
     plt.show()
 
+
 def bivariate_distr_categorical(X):
     '''
     Plot relationship beween the categorical variable and the target variable
     Input: categorical variable 
-    ''' 
+    '''
     sns.boxplot(X, y)
     plt.show()
 
@@ -137,10 +138,18 @@ for i in ord_list:
 # for i in ord_list:
 #    summary_stats_category(X[i])
 
-# Adjust for Periods >> format time as category
+# Adjust for time Periods >> format time as category
 # assign 0 to NaN
-X['GarageYrBlt'] = X['GarageYrBlt'].fillna(0).astype(int)
+
+# Generalize
+# Then we can adjust the zeros to the most frequent category (if necessary)
 year_list = ['YearBuilt', 'YearRemodAdd', 'GarageYrBlt', 'YrSold', 'MoSold']
+
+imp_period_miss = SimpleImputer(missing_values=np.nan,
+                                strategy='constant', fill_value=0)
+imp_period_miss = imp_period_miss.fit(X[year_list])
+X[year_list] = imp_period_miss.transform(X[year_list])
+
 
 for i in year_list:
     X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
@@ -149,7 +158,7 @@ for i in year_list:
 # for i in year_list:
 #    summary_stats_category(X[i])
 
-# Adjust for ordered categorical variables
+# Adjust for ordered categoricMasVnrTypeal variables
 order = pd.api.types.CategoricalDtype(['NoFeature',
                                        'Po',
                                        'Fa',
@@ -228,16 +237,16 @@ col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
 
-# 2.2. imput missing 
+# 2.2. imput missing
 
-# DATA RELATIONSHIP INVESTIGATION 
+# DATA RELATIONSHIP INVESTIGATION
 # (Knowing your data and the relationship between them)
 # bivariate distribution with the predictor
 
-#summary_stats_category(X['MasVnrType'])
-#bivariate_distr_categorical(X['Electrical'])
-#summary_stats_numeric(X['MasVnrArea'])
-#summary_stats_category(X['Electrical'])
+# summary_stats_category(X['MasVnrType'])
+# bivariate_distr_categorical(X['Electrical'])
+# summary_stats_numeric(X['MasVnrArea'])
+# summary_stats_category(X['Electrical'])
 
 # Input top frequency category checking for price range
 # NOTE: Imputation of missing needs to be the same in the test set
@@ -262,7 +271,7 @@ X[num_var] = imp_num_miss.transform(X[num_var])
 
 # scatterplot of two variable, regression line and 95% confidence
 # Adjust for OUTLIERS
-#for i in num_var:
+# for i in num_var:
 #    sns.regplot(X[i], y)
 #    plt.show()
 
@@ -274,7 +283,7 @@ mask = np.zeros_like(corr, dtype=np.bool)
 mask[np.tril_indices_from(mask)] = True
 
 # Set up plt figure
-fig, ax = plt.subplots(figsize=(50,100))
+fig, ax = plt.subplots(figsize=(50, 100))
 
 # Generate a custom diverging colormap
 cmap = sns.diverging_palette(220, 10, as_cmap=True)
@@ -282,13 +291,11 @@ cmap = sns.diverging_palette(220, 10, as_cmap=True)
 # Draw the heatmap with the mask
 # Adjust for COLLINEARITY
 sns.heatmap(corr, mask=mask, cmap=cmap, center=0, linewidths=.5)
-plt.xticks(rotation = 90)
-plt.yticks(rotation = 45)
+plt.xticks(rotation=90)
+plt.yticks(rotation=45)
 plt.show()
 
 # 2.3 Feature Normalization
-
-
 
 
 # TO DO
