@@ -4,8 +4,10 @@ import matplotlib.pylab as plt
 import numpy as np
 import seaborn as sns
 from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
 
-# Import train dataset
+# 0. Import dataset
+#
 # Alternatuive: keep_default_na = False
 data = pd.read_csv('train.csv')
 
@@ -13,11 +15,9 @@ data = pd.read_csv('train.csv')
 data.columns
 
 # Devide input features from output feature
-X = data.iloc[::, :-1]
+# Remuve Id and response variable
+X = data.iloc[::, 1:-1]
 y = data.loc[:, 'SalePrice']
-
-# Remove index Id
-X = X.drop(['Id'], axis=1)
 
 # return dtypes in data
 X.dtypes
@@ -89,7 +89,7 @@ def bivariate_distr_categorical(X):
 
 # 2. DATA PREPROCESSING
 
-# 2.1 Features Encoding
+# 2.0 Assign the right data type and correct import error
 
 # For the categories >> substitute all NA with NoFeature
 # instead of missing it becomes 'No feature'
@@ -129,33 +129,34 @@ for i in cat_list:
 # Note: MasVnrType, Electrical (have missing values)
 
 # Adjust for ordered categorical variables
-ord_list = ['OverallQual', 'OverallCond']
+ord_list0 = ['OverallQual', 'OverallCond']
 
-for i in ord_list:
+for i in ord_list0:
     X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
 
 # Visual inspection
 # for i in ord_list:
 #    summary_stats_category(X[i])
 
+# 1st strategy
 # Adjust for time Periods >> format time as category
 # assign 0 to NaN
 
 # Generalize
 # Then we can adjust the zeros to the most frequent category (if necessary)
-year_list = ['YearBuilt', 'YearRemodAdd', 'GarageYrBlt', 'YrSold', 'MoSold']
+date_list = ['YearBuilt', 'YearRemodAdd', 'GarageYrBlt', 'YrSold', 'MoSold']
 
 imp_period_miss = SimpleImputer(missing_values=np.nan,
                                 strategy='constant', fill_value=0)
-imp_period_miss = imp_period_miss.fit(X[year_list])
-X[year_list] = imp_period_miss.transform(X[year_list])
+imp_period_miss = imp_period_miss.fit(X[date_list])
+X[date_list] = imp_period_miss.transform(X[date_list])
 
 
-for i in year_list:
+for i in date_list:
     X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
 
 # Visual inspection
-# for i in year_list:
+# for i in date_list:
 #    summary_stats_category(X[i])
 
 # Adjust for ordered categoricMasVnrTypeal variables
@@ -166,11 +167,11 @@ order = pd.api.types.CategoricalDtype(['NoFeature',
                                        'Gd',
                                        'Ex'], ordered=True)
 
-ord_list = ['BsmtQual', 'BsmtCond', 'ExterQual', 'ExterCond',
-            'HeatingQC', 'KitchenQual', 'FireplaceQu', 'GarageQual',
-            'GarageCond', 'PoolQC']
+ord_list1 = ['BsmtQual', 'BsmtCond', 'ExterQual', 'ExterCond',
+             'HeatingQC', 'KitchenQual', 'FireplaceQu', 'GarageQual',
+             'GarageCond', 'PoolQC']
 
-for i in ord_list:
+for i in ord_list1:
     X[i] = X[i].astype(order)
 
 # Visual inspection
@@ -184,9 +185,9 @@ order = pd.api.types.CategoricalDtype(['NoFeature',
                                        'Av',
                                        'Gd'], ordered=True)
 
-ord_list = ['BsmtExposure']
+ord_list2 = ['BsmtExposure']
 
-for i in ord_list:
+for i in ord_list2:
     X[i] = X[i].astype(order)
 
 # Visual inspection
@@ -202,9 +203,9 @@ order = pd.api.types.CategoricalDtype(['NoFeature',
                                        'ALQ',
                                        'GLQ'], ordered=True)
 
-ord_list = ['BsmtFinType1', 'BsmtFinType2']
+ord_list3 = ['BsmtFinType1', 'BsmtFinType2']
 
-for i in ord_list:
+for i in ord_list3:
     X[i] = X[i].astype(order)
 
 # Visual inspection
@@ -221,23 +222,21 @@ order = pd.api.types.CategoricalDtype(['Sal',
                                        'Min1',
                                        'Typ'], ordered=True)
 
-ord_list = ['Functional']
+ord_list4 = ['Functional']
 
-for i in ord_list:
+for i in ord_list4:
     X[i] = X[i].astype(order)
 
 # Visual inspection
 # for i in ord_list:
 #    summary_stats_category(X[i])
 
-# 2.2 Handle missing values
+# 2.2. imput missing
 
 col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
                         columns=['N_missing'])
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
-
-# 2.2. imput missing
 
 # DATA RELATIONSHIP INVESTIGATION
 # (Knowing your data and the relationship between them)
@@ -248,26 +247,8 @@ col_miss = col_miss[col_miss['N_missing'] > 0]
 # summary_stats_numeric(X['MasVnrArea'])
 # summary_stats_category(X['Electrical'])
 
-# Input top frequency category checking for price range
-# NOTE: Imputation of missing needs to be the same in the test set
-# Generalize for all categorical (test set - we can other missing categories)
-
-imp_cat_miss = SimpleImputer(strategy='most_frequent')
 cat_var = X.select_dtypes(include=['category']).columns
-imp_cat_miss = imp_cat_miss.fit(X[cat_var])
-
-X[cat_var] = imp_cat_miss.transform(X[cat_var])
-
-summary_stats_numeric(X['LotFrontage'])
-
-# Generalize for all numerical
-# assign median value to missing in LotFrontage
-
 num_var = X.select_dtypes(include=['int', 'float']).columns
-imp_num_miss = SimpleImputer(missing_values=np.nan, strategy='median')
-imp_num_miss = imp_num_miss.fit(X[num_var])
-
-X[num_var] = imp_num_miss.transform(X[num_var])
 
 # scatterplot of two variable, regression line and 95% confidence
 # Adjust for OUTLIERS
@@ -295,7 +276,81 @@ plt.xticks(rotation=90)
 plt.yticks(rotation=45)
 plt.show()
 
-# 2.3 Feature Normalization
+# Input top frequency category checking for price range
+# NOTE: Imputation of missing needs to be the same in the test set
+# Generalize for all categorical (test set - we can other missing categories)
+
+imp_cat_miss = SimpleImputer(strategy='most_frequent')
+imp_cat_miss = imp_cat_miss.fit(X[cat_var])
+X[cat_var] = imp_cat_miss.transform(X[cat_var])
+
+summary_stats_numeric(X['LotFrontage'])
+
+# Generalize for all numerical
+# assign median value to missing in LotFrontage
+
+num_var = X.select_dtypes(include=['int', 'float']).columns
+imp_num_miss = SimpleImputer(missing_values=np.nan, strategy='median')
+imp_num_miss = imp_num_miss.fit(X[num_var])
+
+X[num_var] = imp_num_miss.transform(X[num_var])
+
+# 2.3 Feature Encoding
+
+# Encode ordinal feature
+ord_enc_0 = OrdinalEncoder()
+ord_enc_0 = ord_enc_0.fit(X[ord_list0])
+ord_enc_0.categories_  # 0 category represent the baseline (1)
+X[ord_list0] = ord_enc_0.transform(X[ord_list0])
+
+ord_enc_1 = OrdinalEncoder(
+    categories=[['NoFeature', 'Po', 'Fa', 'TA', 'Gd', 'Ex']]*len(ord_list1))
+ord_enc_1 = ord_enc_1.fit(X[ord_list1])
+ord_enc_1.categories_ # Baseline (NoFeature)
+X[ord_list1] = ord_enc_1.transform(X[ord_list1])
+
+ord_enc_2 = OrdinalEncoder(categories = [['NoFeature',
+                                       'No',
+                                       'Mn',
+                                       'Av',
+                                       'Gd']]*len(ord_list2))
+ord_enc_2 = ord_enc_2.fit(X[ord_list2])
+ord_enc_2.categories_ # baseline it is the first on the list
+X[ord_list2] = ord_enc_2.transform(X[ord_list2])
+
+ord_enc_3 = OrdinalEncoder(categories = [['NoFeature',
+                                       'Unf',
+                                       'LwQ',
+                                       'Rec',
+                                       'BLQ',
+                                       'ALQ',
+                                       'GLQ']]*len(ord_list3))
+ord_enc_3 = ord_enc_3.fit(X[ord_list3])
+X[ord_list3] = ord_enc_3.transform(X[ord_list3])
+
+ord_enc_4 = OrdinalEncoder(categories = [['Sal',
+                                       'Sev',
+                                       'Maj2',
+                                       'Maj1',
+                                       'Mod',
+                                       'Min2',
+                                       'Min1',
+                                       'Typ']]*len(ord_list4))
+ord_enc_4 = ord_enc_4.fit(X[ord_list4])
+X[ord_list4] = ord_enc_4.transform(X[ord_list4])
+
+
+'''
+One-Hot-Encoder
+cat_list
+'''
+
+
+# 2.4 Feature Normalization
+# sin cos ciclic feature Month (MoSold) date_list[-1]
+# 1st strategy
+# date_list[:-1] normalize
+# https://datascience.stackexchange.com/a/24003
 
 
 # TO DO
