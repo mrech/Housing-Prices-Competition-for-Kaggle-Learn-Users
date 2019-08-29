@@ -297,7 +297,7 @@ X[num_var] = imp_num_miss.transform(X[num_var])
 
 # 2.3 Feature Encoding
 
-# Encode ordinal feature
+# Encode ordinal features
 ord_enc_0 = OrdinalEncoder()
 ord_enc_0 = ord_enc_0.fit(X[ord_list0])
 ord_enc_0.categories_  # 0 category represent the baseline (1)
@@ -339,12 +339,14 @@ ord_enc_4 = OrdinalEncoder(categories = [['Sal',
 ord_enc_4 = ord_enc_4.fit(X[ord_list4])
 X[ord_list4] = ord_enc_4.transform(X[ord_list4])
 
+cat_enc = OneHotEncoder()
+cat_enc = cat_enc.fit(X[cat_list])
+cat_enc.categories_
+cat = cat_enc.transform(X[cat_list]).toarray()
 
-'''
-One-Hot-Encoder
-cat_list
-'''
+X = X.drop(cat_list, axis = 1)
 
+X = pd.DataFrame.join(X, pd.DataFrame(cat))
 
 # 2.4 Feature Normalization
 # sin cos ciclic feature Month (MoSold) date_list[-1]
