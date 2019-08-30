@@ -74,7 +74,7 @@ def summary_stats_numeric(X, y):
     # Plot on ax1 with the ax argument
     sns.distplot(X, ax=ax1)
     sns.regplot(X, y, ax=ax2)
-    
+
     plt.show()
 
 
@@ -251,14 +251,14 @@ cat_var = X.select_dtypes(include=['category']).columns
 num_var = X.select_dtypes(include=['int', 'float']).columns
 
 # scatterplot of two variable, regression line and 95% confidence
-# Adjust for OUTLIERS and HIGH LEVERAGE POINTS 
+# Adjust for OUTLIERS and HIGH LEVERAGE POINTS
 # (laverage stats with multiple predictors)
 # for i in num_var:
 #    sns.regplot(X[i], y)
 #    plt.show()
 
 # compute correlation matrix
-# 
+#
 corr = X.corr()
 
 # Generate a mask for the upper triangle
@@ -308,36 +308,36 @@ X[ord_list0] = ord_enc_0.transform(X[ord_list0])
 ord_enc_1 = OrdinalEncoder(
     categories=[['NoFeature', 'Po', 'Fa', 'TA', 'Gd', 'Ex']]*len(ord_list1))
 ord_enc_1 = ord_enc_1.fit(X[ord_list1])
-ord_enc_1.categories_ # Baseline (NoFeature)
+ord_enc_1.categories_  # Baseline (NoFeature)
 X[ord_list1] = ord_enc_1.transform(X[ord_list1])
 
-ord_enc_2 = OrdinalEncoder(categories = [['NoFeature',
-                                       'No',
-                                       'Mn',
-                                       'Av',
-                                       'Gd']]*len(ord_list2))
+ord_enc_2 = OrdinalEncoder(categories=[['NoFeature',
+                                        'No',
+                                        'Mn',
+                                        'Av',
+                                        'Gd']]*len(ord_list2))
 ord_enc_2 = ord_enc_2.fit(X[ord_list2])
-ord_enc_2.categories_ # baseline it is the first on the list
+ord_enc_2.categories_  # baseline it is the first on the list
 X[ord_list2] = ord_enc_2.transform(X[ord_list2])
 
-ord_enc_3 = OrdinalEncoder(categories = [['NoFeature',
-                                       'Unf',
-                                       'LwQ',
-                                       'Rec',
-                                       'BLQ',
-                                       'ALQ',
-                                       'GLQ']]*len(ord_list3))
+ord_enc_3 = OrdinalEncoder(categories=[['NoFeature',
+                                        'Unf',
+                                        'LwQ',
+                                        'Rec',
+                                        'BLQ',
+                                        'ALQ',
+                                        'GLQ']]*len(ord_list3))
 ord_enc_3 = ord_enc_3.fit(X[ord_list3])
 X[ord_list3] = ord_enc_3.transform(X[ord_list3])
 
-ord_enc_4 = OrdinalEncoder(categories = [['Sal',
-                                       'Sev',
-                                       'Maj2',
-                                       'Maj1',
-                                       'Mod',
-                                       'Min2',
-                                       'Min1',
-                                       'Typ']]*len(ord_list4))
+ord_enc_4 = OrdinalEncoder(categories=[['Sal',
+                                        'Sev',
+                                        'Maj2',
+                                        'Maj1',
+                                        'Mod',
+                                        'Min2',
+                                        'Min1',
+                                        'Typ']]*len(ord_list4))
 ord_enc_4 = ord_enc_4.fit(X[ord_list4])
 X[ord_list4] = ord_enc_4.transform(X[ord_list4])
 
@@ -346,7 +346,7 @@ cat_enc = cat_enc.fit(X[cat_list])
 cat_enc.categories_
 cat = cat_enc.transform(X[cat_list]).toarray()
 
-X = X.drop(cat_list, axis = 1)
+X = X.drop(cat_list, axis=1)
 
 X = pd.DataFrame.join(X, pd.DataFrame(cat))
 
@@ -354,21 +354,21 @@ X = pd.DataFrame.join(X, pd.DataFrame(cat))
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
 # 1st strategy, take into account for sparsity and ourliers
 # Extract variables with sparse data where at least 25% of observations is 0
-descriptive = pd.DataFrame.describe(X[num_var]) 
+descriptive = pd.DataFrame.describe(X[num_var])
 sparse = descriptive.loc['25%', :] == 0
 sparse_var = sparse[np.where(sparse)[0]].index.tolist()
 
 sparse_transf = MaxAbsScaler().fit(X[sparse_var])
 X[sparse_var] = sparse_transf.transform(X[sparse_var])
 
-#for i in sparse_var:
+# for i in sparse_var:
 #    summary_stats_numeric(X[i], y)
 
 num_var = num_var.tolist()
 
 # list comprehension
 num_var = [i for i in num_var if i not in sparse_var]
-descriptive = pd.DataFrame.describe(X[num_var]) 
+descriptive = pd.DataFrame.describe(X[num_var])
 
 # Standardize variable with very small standard deviations
 small_std = descriptive.loc['std', :] < 5
@@ -385,10 +385,10 @@ X[num_var] = skewed_transf.transform(X[num_var])
 
 # Standardize date
 descriptive = pd.DataFrame.describe(X)
-descriptive = descriptive.loc[['mean', 'std'],:].transpose()
+descriptive = descriptive.loc[['mean', 'std'], :].transpose()
 descriptive.sort_values(by=['mean', 'std'])
 
-#for i in date_list:
+# for i in date_list:
 #    summary_stats_numeric(X[i],y)
 # 0 imput to GarageYrBlt (feature engineer to create meaningfull variable and handle multicoll.)
 
@@ -402,16 +402,16 @@ X[yr_list] = yr_stand_transf.transform(X[yr_list])
 
 ## Explanation / Intuition
 #foo = np.array([1,2,3,4,5,6,7,8,9,10,11,12])
-## Circle Circumference = (2*pi*r) devide by 12 periods
-## for each period we calculate sin and cos
-## With this transformation any cyclical feature will be doubled. 
+# Circle Circumference = (2*pi*r) devide by 12 periods
+# for each period we calculate sin and cos
+# With this transformation any cyclical feature will be doubled.
 #bar1 = np.cos((foo-1) * (2*np.pi/12))
 #bar2 = np.sin((foo-1) * (2*np.pi/12))
 #fig, ax = plt.subplots()
 #plt.scatter(bar1, bar2)
-#for i, txt in enumerate(foo-1):
+# for i, txt in enumerate(foo-1):
 #    ax.annotate(txt, (bar1[i], bar2[i]))
-#plt.show()
+# plt.show()
 
 MoSold_cos = np.cos((X[date_list[-1]]-1) * (2*np.pi/12))
 MoSold_sin = np.sin((X[date_list[-1]]-1) * (2*np.pi/12))
@@ -422,11 +422,76 @@ for i, txt in enumerate((X[date_list[-1]]-1)):
     ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
 plt.show()
 
-X = X.drop(date_list[-1], axis = 1)
+X = X.drop(date_list[-1], axis=1)
 X['MoSold_cos'] = MoSold_cos
 X['MoSold_sin'] = MoSold_sin
 
+# 3. MODEL
+# Linear Regression with multiple variables
+# Add a column of ones to X (intercept term)
+X.insert(loc=0, column='Intercept', value=1)
+
+
+def CostFunction(X, y, theta):
+    '''
+    INPUT: X, y, theta
+    Compute the cost function of linear regression
+    '''
+    # number of training example
+    m = len(y)
+    # Errors
+    errors = np.dot(X, theta)-y
+
+    return np.dot(errors.T, errors)/(2*m)
+
+
+def GradientDescent(X, y, theta, alpha, iterations):
+    '''
+    Input: X, y, theta, alpha, iter
+    Return: Update theta and cost function history
+    '''
+    m = len(y)
+    J_history = np.zeros(iterations)
+    epsilon = 10**-3
+
+    for i in range(iterations):
+        # Calculate partial derivative of Theta of J(theta)
+        delta = np.dot(X.T, (np.dot(X, theta) - y))/m
+
+        theta = theta - (alpha * delta)
+
+        J_history[i] = CostFunction(X, y, theta)
+
+        # Automatic convergence test
+        try:
+            if abs(J_history[i+1] - J_history[i]) < epsilon:
+                print('Convergence reached!')
+                break
+        except IndexError:
+            print('Convergence NOT reached..\n',
+                  abs(J_history[i-1] - J_history[i]))
+
+    return theta, J_history
+
+
+# gradient descent settings
+# Initiate the fitting parameters to zero
+theta = np.zeros(X.shape[1])
+iterations = 500
+alpha = 0.001
+
+# Check that gradient descent is working correctly
+theta, J_history = GradientDescent(X, y, theta, alpha, iterations)
+
+plt.plot(J_history)
+plt.title('Gradient Descent Sanity Check')
+plt.xlabel('No of iterations')
+plt.ylabel(r'$J(\Theta)$')
+plt.show()
+
+
 # TO DO
+# Normal Equation Implementation
 # 2.3.1 Log transformation
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # FEATURE ENGINEERING
