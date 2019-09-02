@@ -6,11 +6,15 @@ import seaborn as sns
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
+from sklearn.model_selection import KFold, cross_val_score
+from sklearn.linear_model import LinearRegression, Lasso
 
-# 0. Import dataset
-#
+
+# 0. IMPORT DATASETS
+
 # Alternatuive: keep_default_na = False
 data = pd.read_csv('train.csv')
+dt_test = pd.read_csv('test.csv')
 
 # variables
 data.columns
@@ -20,15 +24,18 @@ data.columns
 X = data.iloc[::, 1:-1]
 y = data.loc[:, 'SalePrice']
 
+# Apply the same transformation to the training set.
+X_test = dt_test.iloc[::, 1:]
+
 # return dtypes in data
 X.dtypes
-
 
 # 1. DATA EXPLORATION
 
 # 1.1 Descriptive Statistics
 
 # create a function which plot summary stats and distribution
+
 
 def summary_stats_category(X):
     '''
@@ -55,7 +62,7 @@ def summary_stats_category(X):
 def summary_stats_numeric(X, y):
     '''
     Plot summary stats together with univariate dist and bivariate dist
-    Input: numerical variable
+    Input: numerical variable and response variable
     Output: plot and summary stats
     '''
 
@@ -104,9 +111,12 @@ values = {'Alley': 'NoFeature', 'BsmtQual': 'NoFeature',
           'MiscFeature': 'NoFeature'}
 
 X = X.fillna(value=values)
+X_test = X_test.fillna(value=values)
 
 # Check for missing values on the output
 np.sum(pd.isna(y))
+
+# summary_stats_numeric(y, y)
 
 # Encode categorical variables
 # check if values are included
@@ -151,6 +161,8 @@ imp_period_miss = SimpleImputer(missing_values=np.nan,
 imp_period_miss = imp_period_miss.fit(X[date_list])
 X[date_list] = imp_period_miss.transform(X[date_list])
 
+# Impute the missing to the test set
+X_test[date_list] = imp_period_miss.transform(X_test[date_list])
 
 for i in date_list:
     X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
@@ -233,10 +245,17 @@ for i in ord_list4:
 
 # 2.2. imput missing
 
+# Missing values for train data
 col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
                         columns=['N_missing'])
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
+
+# Missing values for test data
+col_miss_test = pd.DataFrame(np.sum(pd.isna(X_test), axis=0),
+                             columns=['N_missing'])
+
+col_miss_test = col_miss_test[col_miss_test['N_missing'] > 0]
 
 # DATA RELATIONSHIP INVESTIGATION
 # (Knowing your data and the relationship between them)
@@ -258,7 +277,7 @@ num_var = X.select_dtypes(include=['int', 'float']).columns
 #    plt.show()
 
 # compute correlation matrix
-#
+
 corr = X.corr()
 
 # Generate a mask for the upper triangle
@@ -287,6 +306,9 @@ imp_cat_miss = SimpleImputer(strategy='most_frequent')
 imp_cat_miss = imp_cat_miss.fit(X[cat_var])
 X[cat_var] = imp_cat_miss.transform(X[cat_var])
 
+# Impute the missing to the test set
+X_test[cat_var] = imp_cat_miss.transform(X_test[cat_var])
+
 summary_stats_numeric(X['LotFrontage'], y)
 
 # Generalize for all numerical
@@ -297,6 +319,9 @@ imp_num_miss = imp_num_miss.fit(X[num_var])
 
 X[num_var] = imp_num_miss.transform(X[num_var])
 
+# Impute the missing to the test set
+X_test[num_var] = imp_num_miss.transform(X_test[num_var])
+
 # 2.3 Feature Encoding
 
 # Encode ordinal features
@@ -305,11 +330,17 @@ ord_enc_0 = ord_enc_0.fit(X[ord_list0])
 ord_enc_0.categories_  # 0 category represent the baseline (1)
 X[ord_list0] = ord_enc_0.transform(X[ord_list0])
 
+# Encode the features on the test set
+X_test[ord_list0] = ord_enc_0.transform(X_test[ord_list0])
+
 ord_enc_1 = OrdinalEncoder(
     categories=[['NoFeature', 'Po', 'Fa', 'TA', 'Gd', 'Ex']]*len(ord_list1))
 ord_enc_1 = ord_enc_1.fit(X[ord_list1])
 ord_enc_1.categories_  # Baseline (NoFeature)
 X[ord_list1] = ord_enc_1.transform(X[ord_list1])
+
+# Encode the features on the test set
+X_test[ord_list1] = ord_enc_1.transform(X_test[ord_list1])
 
 ord_enc_2 = OrdinalEncoder(categories=[['NoFeature',
                                         'No',
@@ -320,6 +351,9 @@ ord_enc_2 = ord_enc_2.fit(X[ord_list2])
 ord_enc_2.categories_  # baseline it is the first on the list
 X[ord_list2] = ord_enc_2.transform(X[ord_list2])
 
+# Encode the features on the test set
+X_test[ord_list2] = ord_enc_2.transform(X_test[ord_list2])
+
 ord_enc_3 = OrdinalEncoder(categories=[['NoFeature',
                                         'Unf',
                                         'LwQ',
@@ -329,6 +363,9 @@ ord_enc_3 = OrdinalEncoder(categories=[['NoFeature',
                                         'GLQ']]*len(ord_list3))
 ord_enc_3 = ord_enc_3.fit(X[ord_list3])
 X[ord_list3] = ord_enc_3.transform(X[ord_list3])
+
+# Encode the features on the test set
+X_test[ord_list3] = ord_enc_3.transform(X_test[ord_list3])
 
 ord_enc_4 = OrdinalEncoder(categories=[['Sal',
                                         'Sev',
@@ -341,14 +378,21 @@ ord_enc_4 = OrdinalEncoder(categories=[['Sal',
 ord_enc_4 = ord_enc_4.fit(X[ord_list4])
 X[ord_list4] = ord_enc_4.transform(X[ord_list4])
 
-cat_enc = OneHotEncoder()
+# Encode the features on the test set
+X_test[ord_list4] = ord_enc_4.transform(X_test[ord_list4])
+
+cat_enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
 cat_enc = cat_enc.fit(X[cat_list])
 cat_enc.categories_
-cat = cat_enc.transform(X[cat_list]).toarray()
 
+cat = cat_enc.transform(X[cat_list])
 X = X.drop(cat_list, axis=1)
-
 X = pd.DataFrame.join(X, pd.DataFrame(cat))
+
+# Encode the features on the test set
+cat_test = cat_enc.transform(X_test[cat_list])
+X_test = X_test.drop(cat_list, axis=1)
+X_test = pd.DataFrame.join(X_test, pd.DataFrame(cat_test))
 
 # 2.4 Features Standardization
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
@@ -360,6 +404,9 @@ sparse_var = sparse[np.where(sparse)[0]].index.tolist()
 
 sparse_transf = MaxAbsScaler().fit(X[sparse_var])
 X[sparse_var] = sparse_transf.transform(X[sparse_var])
+
+# Standardize the features on the test set
+X_test[sparse_var] = sparse_transf.transform(X_test[sparse_var])
 
 # for i in sparse_var:
 #    summary_stats_numeric(X[i], y)
@@ -377,11 +424,17 @@ small_std_var = small_std[np.where(small_std)[0]].index.tolist()
 small_std_transf = MaxAbsScaler().fit(X[small_std_var])
 X[small_std_var] = small_std_transf.transform(X[small_std_var])
 
+# Standardize the features on the test set
+X_test[small_std_var] = small_std_transf.transform(X_test[small_std_var])
+
 # Standardize variables with outliers (Skewed distribution)
 num_var = [i for i in num_var if i not in small_std_var]
 
 skewed_transf = RobustScaler().fit(X[num_var])
 X[num_var] = skewed_transf.transform(X[num_var])
+
+# Standardize the features on the test set
+X_test[num_var] = skewed_transf.transform(X_test[num_var])
 
 # Standardize date
 descriptive = pd.DataFrame.describe(X)
@@ -396,6 +449,9 @@ yr_list = date_list[:-1]
 
 yr_stand_transf = StandardScaler().fit(X[yr_list])
 X[yr_list] = yr_stand_transf.transform(X[yr_list])
+
+# Standardize the features on the test set
+X_test[yr_list] = yr_stand_transf.transform(X_test[yr_list])
 
 # Maintaining the Cyclic Representations of Month Sold
 # https://datascience.stackexchange.com/a/24003
@@ -416,94 +472,74 @@ X[yr_list] = yr_stand_transf.transform(X[yr_list])
 MoSold_cos = np.cos((X[date_list[-1]]-1) * (2*np.pi/12))
 MoSold_sin = np.sin((X[date_list[-1]]-1) * (2*np.pi/12))
 
-fig, ax = plt.subplots()
-plt.scatter(MoSold_cos, MoSold_sin)
-for i, txt in enumerate((X[date_list[-1]]-1)):
-    ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
-plt.show()
+#fig, ax = plt.subplots()
+#plt.scatter(MoSold_cos, MoSold_sin)
+#for i, txt in enumerate((X[date_list[-1]]-1)):
+#    ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
+#plt.show()
 
 X = X.drop(date_list[-1], axis=1)
 X['MoSold_cos'] = MoSold_cos
 X['MoSold_sin'] = MoSold_sin
 
-# 3. MODEL
+# Standardize the features on the test set
+MoSold_cos = np.cos((X_test[date_list[-1]]-1) * (2*np.pi/12))
+MoSold_sin = np.sin((X_test[date_list[-1]]-1) * (2*np.pi/12))
+X_test = X_test.drop(date_list[-1], axis=1)
+X_test['MoSold_cos'] = MoSold_cos
+X_test['MoSold_sin'] = MoSold_sin
+
+# 3. MODELS
+
+# log-transform the target variable, since submission are evaluated 
+# on logarithm value of sales price.
+
+y = np.log(y)
+#summary_stats_numeric(y,y)
+
 # Linear Regression with multiple variables
-# Add a column of ones to X (intercept term)
-X.insert(loc=0, column='Intercept', value=1)
+linear_reg = LinearRegression()
+lasso = Lasso(alpha = 0.0005, random_state = 1)
 
+# 4. PREDICT AND ACCURACIES
+# Cross Validation Strategy
+# https://scikit-learn.org/stable/model_selection.html#model-selection
+# K-fold cross validation with K = 5 or 10 provides a good compromise for this
+# bias-variance tradeoff.
 
-def CostFunction(X, y, theta):
-    '''
-    INPUT: X, y, theta
-    Compute the cost function of linear regression
-    '''
-    # number of training example
-    m = len(y)
-    # Errors
-    errors = np.dot(X, theta)-y
+# Choice of Metric
+# Submissions are evaluated on Root-Mean-Squared-Error (RMSE) between the logarithm of the predicted 
+# value and the logarithm of the observed sales price. 
+# (Taking logs means that errors in predicting expensive houses and cheap houses will affect the result equally.)
 
-    return np.dot(errors.T, errors)/(2*m)
+def cv_rmse(model):
+    kf = KFold(n_splits = 5, shuffle = True, random_state = 123)
+    rmse = np.sqrt(-cross_val_score(model, X, y, cv=kf, scoring='neg_mean_squared_error'))
+    return rmse
 
+reg = LinearRegression().fit(X, y)
+theta = reg.coef_
+prediction = np.dot(X, theta) + reg.intercept_
+rmse = np.sqrt(np.sum(np.power(y-prediction,2))/len(y))
 
-def GradientDescent(X, y, theta, alpha, iterations):
-    '''
-    Input: X, y, theta, alpha, iter
-    Return: Update theta and cost function history
-    '''
-    m = len(y)
-    J_history = np.zeros(iterations)
-    epsilon = 10**-3
+# overfitting
+score = cv_rmse(linear_reg)
+print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
 
-    for i in range(iterations):
-        # Calculate partial derivative of Theta of J(theta)
-        delta = np.dot(X.T, (np.dot(X, theta) - y))/m
-
-        theta = theta - (alpha * delta)
-
-        J_history[i] = CostFunction(X, y, theta)
-
-        # Automatic convergence test
-        try:
-            if abs(J_history[i+1] - J_history[i]) < epsilon:
-                print('Convergence reached!')
-                break
-        except IndexError:
-            print('Convergence NOT reached..\n',
-                  abs(J_history[i-1] - J_history[i]))
-
-    return theta, J_history
-
-
-# gradient descent settings
-# Initiate the fitting parameters to zero
-theta = np.zeros(X.shape[1])
-iterations = 500
-alpha = 0.001
-
-# Check that gradient descent is working correctly
-theta, J_history = GradientDescent(X, y, theta, alpha, iterations)
-
-plt.plot(J_history)
-plt.title('Gradient Descent Sanity Check')
-plt.xlabel('No of iterations')
-plt.ylabel(r'$J(\Theta)$')
-plt.show()
-
+score = cv_rmse(lasso)
+print("\nLasso score: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
 
 # TO DO
-# Normal Equation Implementation
+# create trade-off graph variance-bias
+# crete graph for parameter lamda
+# check cross-validation implementation
+# interpret the coefs.
 # 2.3.1 Log transformation
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # FEATURE ENGINEERING
 # Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
 # boxplot by categories
-#X['MoYrSold'] = X['MoSold'].map(str) + '-' + X['YrSold'].map(str)
-#X['MoYrSold'] = pd.to_datetime(X['MoYrSold'], format='%m-%Y')
-
-# Divide trainset into Train (60%), Cross Validation (20%), Test Set (20%)
-# https://scikit-learn.org/stable/model_selection.html#model-selection
-# K-fold cross validation with K = 5 or 10 provides a good compromise for this
-# bias-variance tradeoff.
-# Use ShuffleSplit good alternative to KFold
+# X['MoYrSold'] = X['MoSold'].map(str) + '-' + X['YrSold'].map(str)
+# X['MoYrSold'] = pd.to_datetime(X['MoYrSold'], format='%m-%Y')
 # PCA and Correlation graph
 # log transformation
