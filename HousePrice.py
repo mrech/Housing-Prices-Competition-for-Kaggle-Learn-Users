@@ -6,7 +6,7 @@ import seaborn as sns
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
 
 
@@ -20,15 +20,19 @@ dt_test = pd.read_csv('test.csv')
 data.columns
 
 # Devide input features from output feature
-# Remuve Id and response variable
+# Remove Id and response variable
 X = data.iloc[::, 1:-1]
 y = data.loc[:, 'SalePrice']
 
-# Apply the same transformation to the training set.
+# Create a 20% test set to see if the model generalize well
+X_train, test_X, y_train, test_y = train_test_split(X, y, test_size=0.2,
+                                                    random_state=42)
+
+# Apply the same transformation to the test set.
 X_test = dt_test.iloc[::, 1:]
 
 # return dtypes in data
-X.dtypes
+X_train.dtypes
 
 # 1. DATA EXPLORATION
 
@@ -67,7 +71,7 @@ def summary_stats_numeric(X, y):
     '''
 
     # Remove missing
-    y = y[np.where(~pd.isna(X))[0]]
+    y = y[X.notnull()]
     X = X.dropna()
 
     # Create a figure instance, and the two subplots
@@ -85,7 +89,7 @@ def summary_stats_numeric(X, y):
     plt.show()
 
 
-def bivariate_distr_categorical(X):
+def bivariate_distr_categorical(X, y):
     '''
     Plot relationship beween the categorical variable and the target variable
     Input: categorical variable 
@@ -110,13 +114,14 @@ values = {'Alley': 'NoFeature', 'BsmtQual': 'NoFeature',
           'PoolQC': 'NoFeature', 'Fence': 'NoFeature',
           'MiscFeature': 'NoFeature'}
 
-X = X.fillna(value=values)
+X_train = X_train.fillna(value=values)
+test_X = test_X.fillna(value=values)
 X_test = X_test.fillna(value=values)
 
 # Check for missing values on the output
-np.sum(pd.isna(y))
+#np.sum(pd.isna(y_train))
 
-# summary_stats_numeric(y, y)
+# summary_stats_numeric(y_train, y_train)
 
 # Encode categorical variables
 # check if values are included
@@ -131,22 +136,22 @@ cat_list = ['MSSubClass', 'MSZoning', 'Street', 'Alley', 'LotShape',
             'SaleCondition']
 
 for i in cat_list:
-    X[i] = X[i].astype('category')
+    X_train[i] = X_train[i].astype('category')
 
 # Visual inspection
 # for i in cat_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 # Note: MasVnrType, Electrical (have missing values)
 
 # Adjust for ordered categorical variables
 ord_list0 = ['OverallQual', 'OverallCond']
 
 for i in ord_list0:
-    X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
+    X_train[i] = X_train[i].astype(pd.api.types.CategoricalDtype(ordered=True))
 
 # Visual inspection
 # for i in ord_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 
 # 1st strategy
 # Adjust for time Periods >> format time as category
@@ -158,18 +163,19 @@ date_list = ['YearBuilt', 'YearRemodAdd', 'GarageYrBlt', 'YrSold', 'MoSold']
 
 imp_period_miss = SimpleImputer(missing_values=np.nan,
                                 strategy='constant', fill_value=0)
-imp_period_miss = imp_period_miss.fit(X[date_list])
-X[date_list] = imp_period_miss.transform(X[date_list])
+imp_period_miss = imp_period_miss.fit(X_train[date_list])
+X_train[date_list] = imp_period_miss.transform(X_train[date_list])
+test_X[date_list] = imp_period_miss.transform(test_X[date_list])
 
 # Impute the missing to the test set
 X_test[date_list] = imp_period_miss.transform(X_test[date_list])
 
 for i in date_list:
-    X[i] = X[i].astype(pd.api.types.CategoricalDtype(ordered=True))
+    X_train[i] = X_train[i].astype(pd.api.types.CategoricalDtype(ordered=True))
 
 # Visual inspection
 # for i in date_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 
 # Adjust for ordered categoricMasVnrTypeal variables
 order = pd.api.types.CategoricalDtype(['NoFeature',
@@ -184,11 +190,11 @@ ord_list1 = ['BsmtQual', 'BsmtCond', 'ExterQual', 'ExterCond',
              'GarageCond', 'PoolQC']
 
 for i in ord_list1:
-    X[i] = X[i].astype(order)
+    X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
 # for i in ord_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 
 # Adjust for ordered categorical variables
 order = pd.api.types.CategoricalDtype(['NoFeature',
@@ -200,11 +206,11 @@ order = pd.api.types.CategoricalDtype(['NoFeature',
 ord_list2 = ['BsmtExposure']
 
 for i in ord_list2:
-    X[i] = X[i].astype(order)
+    X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
 # for i in ord_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 
 # Adjust for ordered categorical variables
 order = pd.api.types.CategoricalDtype(['NoFeature',
@@ -218,11 +224,11 @@ order = pd.api.types.CategoricalDtype(['NoFeature',
 ord_list3 = ['BsmtFinType1', 'BsmtFinType2']
 
 for i in ord_list3:
-    X[i] = X[i].astype(order)
+    X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
 # for i in ord_list:
-#   summary_stats_category(X[i])
+#   summary_stats_category(X_train[i])
 
 # Adjust for ordered categorical variables
 order = pd.api.types.CategoricalDtype(['Sal',
@@ -237,16 +243,16 @@ order = pd.api.types.CategoricalDtype(['Sal',
 ord_list4 = ['Functional']
 
 for i in ord_list4:
-    X[i] = X[i].astype(order)
+    X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
 # for i in ord_list:
-#    summary_stats_category(X[i])
+#    summary_stats_category(X_train[i])
 
 # 2.2. imput missing
 
 # Missing values for train data
-col_miss = pd.DataFrame(np.sum(pd.isna(X), axis=0),
+col_miss = pd.DataFrame(np.sum(pd.isna(X_train), axis=0),
                         columns=['N_missing'])
 
 col_miss = col_miss[col_miss['N_missing'] > 0]
@@ -261,24 +267,24 @@ col_miss_test = col_miss_test[col_miss_test['N_missing'] > 0]
 # (Knowing your data and the relationship between them)
 # bivariate distribution with the predictor
 
-# summary_stats_category(X['MasVnrType'])
-# bivariate_distr_categorical(X['Electrical'])
-# summary_stats_numeric(X['MasVnrArea'], y)
-# summary_stats_category(X['Electrical'])
+# summary_stats_category(X_train['MasVnrType'])
+# bivariate_distr_categorical(X_train['Electrical'])
+# summary_stats_numeric(X_train['MasVnrArea'], y)
+# summary_stats_category(X_train['Electrical'])
 
-cat_var = X.select_dtypes(include=['category']).columns
-num_var = X.select_dtypes(include=['int', 'float']).columns
+cat_var = X_train.select_dtypes(include=['category']).columns
+num_var = X_train.select_dtypes(include=['int', 'float']).columns
 
 # scatterplot of two variable, regression line and 95% confidence
 # Adjust for OUTLIERS and HIGH LEVERAGE POINTS
 # (laverage stats with multiple predictors)
 # for i in num_var:
-#    sns.regplot(X[i], y)
+#    sns.regplot(X_train[i], y)
 #    plt.show()
 
 # compute correlation matrix
 
-corr = X.corr()
+corr = X_train.corr()
 
 # Generate a mask for the upper triangle
 mask = np.zeros_like(corr, dtype=np.bool)
@@ -303,41 +309,45 @@ plt.show()
 # Generalize for all categorical (test set - we can other missing categories)
 
 imp_cat_miss = SimpleImputer(strategy='most_frequent')
-imp_cat_miss = imp_cat_miss.fit(X[cat_var])
-X[cat_var] = imp_cat_miss.transform(X[cat_var])
+imp_cat_miss = imp_cat_miss.fit(X_train[cat_var])
+X_train[cat_var] = imp_cat_miss.transform(X_train[cat_var])
+test_X[cat_var] = imp_cat_miss.transform(test_X[cat_var])
 
 # Impute the missing to the test set
 X_test[cat_var] = imp_cat_miss.transform(X_test[cat_var])
-
-summary_stats_numeric(X['LotFrontage'], y)
 
 # Generalize for all numerical
 # assign median value to missing in LotFrontage
 
 imp_num_miss = SimpleImputer(missing_values=np.nan, strategy='median')
-imp_num_miss = imp_num_miss.fit(X[num_var])
+imp_num_miss = imp_num_miss.fit(X_train[num_var])
 
-X[num_var] = imp_num_miss.transform(X[num_var])
+X_train[num_var] = imp_num_miss.transform(X_train[num_var])
+test_X[num_var] = imp_num_miss.transform(test_X[num_var])
 
 # Impute the missing to the test set
 X_test[num_var] = imp_num_miss.transform(X_test[num_var])
+
+summary_stats_numeric(X_train['LotFrontage'], y_train)
 
 # 2.3 Feature Encoding
 
 # Encode ordinal features
 ord_enc_0 = OrdinalEncoder()
-ord_enc_0 = ord_enc_0.fit(X[ord_list0])
+ord_enc_0 = ord_enc_0.fit(X_train[ord_list0])
 ord_enc_0.categories_  # 0 category represent the baseline (1)
-X[ord_list0] = ord_enc_0.transform(X[ord_list0])
+X_train[ord_list0] = ord_enc_0.transform(X_train[ord_list0])
+test_X[ord_list0] = ord_enc_0.transform(test_X[ord_list0])
 
 # Encode the features on the test set
 X_test[ord_list0] = ord_enc_0.transform(X_test[ord_list0])
 
 ord_enc_1 = OrdinalEncoder(
     categories=[['NoFeature', 'Po', 'Fa', 'TA', 'Gd', 'Ex']]*len(ord_list1))
-ord_enc_1 = ord_enc_1.fit(X[ord_list1])
+ord_enc_1 = ord_enc_1.fit(X_train[ord_list1])
 ord_enc_1.categories_  # Baseline (NoFeature)
-X[ord_list1] = ord_enc_1.transform(X[ord_list1])
+X_train[ord_list1] = ord_enc_1.transform(X_train[ord_list1])
+test_X[ord_list1] = ord_enc_1.transform(test_X[ord_list1])
 
 # Encode the features on the test set
 X_test[ord_list1] = ord_enc_1.transform(X_test[ord_list1])
@@ -347,9 +357,10 @@ ord_enc_2 = OrdinalEncoder(categories=[['NoFeature',
                                         'Mn',
                                         'Av',
                                         'Gd']]*len(ord_list2))
-ord_enc_2 = ord_enc_2.fit(X[ord_list2])
+ord_enc_2 = ord_enc_2.fit(X_train[ord_list2])
 ord_enc_2.categories_  # baseline it is the first on the list
-X[ord_list2] = ord_enc_2.transform(X[ord_list2])
+X_train[ord_list2] = ord_enc_2.transform(X_train[ord_list2])
+test_X[ord_list2] = ord_enc_2.transform(test_X[ord_list2])
 
 # Encode the features on the test set
 X_test[ord_list2] = ord_enc_2.transform(X_test[ord_list2])
@@ -361,8 +372,9 @@ ord_enc_3 = OrdinalEncoder(categories=[['NoFeature',
                                         'BLQ',
                                         'ALQ',
                                         'GLQ']]*len(ord_list3))
-ord_enc_3 = ord_enc_3.fit(X[ord_list3])
-X[ord_list3] = ord_enc_3.transform(X[ord_list3])
+ord_enc_3 = ord_enc_3.fit(X_train[ord_list3])
+X_train[ord_list3] = ord_enc_3.transform(X_train[ord_list3])
+test_X[ord_list3] = ord_enc_3.transform(test_X[ord_list3])
 
 # Encode the features on the test set
 X_test[ord_list3] = ord_enc_3.transform(X_test[ord_list3])
@@ -375,54 +387,66 @@ ord_enc_4 = OrdinalEncoder(categories=[['Sal',
                                         'Min2',
                                         'Min1',
                                         'Typ']]*len(ord_list4))
-ord_enc_4 = ord_enc_4.fit(X[ord_list4])
-X[ord_list4] = ord_enc_4.transform(X[ord_list4])
+ord_enc_4 = ord_enc_4.fit(X_train[ord_list4])
+X_train[ord_list4] = ord_enc_4.transform(X_train[ord_list4])
+test_X[ord_list4] = ord_enc_4.transform(test_X[ord_list4])
 
 # Encode the features on the test set
 X_test[ord_list4] = ord_enc_4.transform(X_test[ord_list4])
 
-cat_enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
-cat_enc = cat_enc.fit(X[cat_list])
+cat_enc = OneHotEncoder(sparse = False, handle_unknown='ignore')
+cat_enc = cat_enc.fit(X_train[cat_list])
 cat_enc.categories_
 
-cat = cat_enc.transform(X[cat_list])
-X = X.drop(cat_list, axis=1)
-X = pd.DataFrame.join(X, pd.DataFrame(cat))
+cat = pd.DataFrame(cat_enc.transform(X_train[cat_list]))
+X_train = X_train.drop(cat_list, axis=1)
+
+# Adjust for the random indexing
+cat.index = X_train.index
+X_train = pd.concat([X_train, cat], axis=1)
+
+cat_test_X = pd.DataFrame(cat_enc.transform(test_X[cat_list]))
+test_X = test_X.drop(cat_list, axis=1)
+# Adjust for random indexing
+cat_test_X.index = test_X.index
+test_X = pd.concat([test_X, cat_test_X], axis = 1)
 
 # Encode the features on the test set
-cat_test = cat_enc.transform(X_test[cat_list])
+cat_test = pd.DataFrame(cat_enc.transform(X_test[cat_list]))
 X_test = X_test.drop(cat_list, axis=1)
-X_test = pd.DataFrame.join(X_test, pd.DataFrame(cat_test))
+X_test = pd.concat([X_test, cat_test], axis = 1)
 
 # 2.4 Features Standardization
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
 # 1st strategy, take into account for sparsity and ourliers
 # Extract variables with sparse data where at least 25% of observations is 0
-descriptive = pd.DataFrame.describe(X[num_var])
+descriptive = pd.DataFrame.describe(X_train[num_var])
 sparse = descriptive.loc['25%', :] == 0
 sparse_var = sparse[np.where(sparse)[0]].index.tolist()
 
-sparse_transf = MaxAbsScaler().fit(X[sparse_var])
-X[sparse_var] = sparse_transf.transform(X[sparse_var])
+sparse_transf = MaxAbsScaler().fit(X_train[sparse_var])
+X_train[sparse_var] = sparse_transf.transform(X_train[sparse_var])
+test_X[sparse_var] = sparse_transf.transform(test_X[sparse_var])
 
 # Standardize the features on the test set
 X_test[sparse_var] = sparse_transf.transform(X_test[sparse_var])
 
 # for i in sparse_var:
-#    summary_stats_numeric(X[i], y)
+#    summary_stats_numeric(X_train[i], y_train)
 
 num_var = num_var.tolist()
 
 # list comprehension
 num_var = [i for i in num_var if i not in sparse_var]
-descriptive = pd.DataFrame.describe(X[num_var])
+descriptive = pd.DataFrame.describe(X_train[num_var])
 
 # Standardize variable with very small standard deviations
 small_std = descriptive.loc['std', :] < 5
 small_std_var = small_std[np.where(small_std)[0]].index.tolist()
 
-small_std_transf = MaxAbsScaler().fit(X[small_std_var])
-X[small_std_var] = small_std_transf.transform(X[small_std_var])
+small_std_transf = MaxAbsScaler().fit(X_train[small_std_var])
+X_train[small_std_var] = small_std_transf.transform(X_train[small_std_var])
+test_X[small_std_var] = small_std_transf.transform(test_X[small_std_var])
 
 # Standardize the features on the test set
 X_test[small_std_var] = small_std_transf.transform(X_test[small_std_var])
@@ -430,25 +454,27 @@ X_test[small_std_var] = small_std_transf.transform(X_test[small_std_var])
 # Standardize variables with outliers (Skewed distribution)
 num_var = [i for i in num_var if i not in small_std_var]
 
-skewed_transf = RobustScaler().fit(X[num_var])
-X[num_var] = skewed_transf.transform(X[num_var])
+skewed_transf = RobustScaler().fit(X_train[num_var])
+X_train[num_var] = skewed_transf.transform(X_train[num_var])
+test_X[num_var] = skewed_transf.transform(test_X[num_var])
 
 # Standardize the features on the test set
 X_test[num_var] = skewed_transf.transform(X_test[num_var])
 
 # Standardize date
-descriptive = pd.DataFrame.describe(X)
+descriptive = pd.DataFrame.describe(X_train)
 descriptive = descriptive.loc[['mean', 'std'], :].transpose()
 descriptive.sort_values(by=['mean', 'std'])
 
 # for i in date_list:
-#    summary_stats_numeric(X[i],y)
+#    summary_stats_numeric(X_train[i],y_train)
 # 0 imput to GarageYrBlt (feature engineer to create meaningfull variable and handle multicoll.)
 
 yr_list = date_list[:-1]
 
-yr_stand_transf = StandardScaler().fit(X[yr_list])
-X[yr_list] = yr_stand_transf.transform(X[yr_list])
+yr_stand_transf = StandardScaler().fit(X_train[yr_list])
+X_train[yr_list] = yr_stand_transf.transform(X_train[yr_list])
+test_X[yr_list] = yr_stand_transf.transform(test_X[yr_list])
 
 # Standardize the features on the test set
 X_test[yr_list] = yr_stand_transf.transform(X_test[yr_list])
@@ -469,18 +495,24 @@ X_test[yr_list] = yr_stand_transf.transform(X_test[yr_list])
 #    ax.annotate(txt, (bar1[i], bar2[i]))
 # plt.show()
 
-MoSold_cos = np.cos((X[date_list[-1]]-1) * (2*np.pi/12))
-MoSold_sin = np.sin((X[date_list[-1]]-1) * (2*np.pi/12))
+MoSold_cos = np.cos((X_train[date_list[-1]]-1) * (2*np.pi/12))
+MoSold_sin = np.sin((X_train[date_list[-1]]-1) * (2*np.pi/12))
 
 #fig, ax = plt.subplots()
 #plt.scatter(MoSold_cos, MoSold_sin)
-# for i, txt in enumerate((X[date_list[-1]]-1)):
+# for i, txt in enumerate((X_train[date_list[-1]]-1)):
 #    ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
 # plt.show()
 
-X = X.drop(date_list[-1], axis=1)
-X['MoSold_cos'] = MoSold_cos
-X['MoSold_sin'] = MoSold_sin
+X_train = X_train.drop(date_list[-1], axis=1)
+X_train['MoSold_cos'] = MoSold_cos
+X_train['MoSold_sin'] = MoSold_sin
+
+MoSold_cos = np.cos((test_X[date_list[-1]]-1) * (2*np.pi/12))
+MoSold_sin = np.sin((test_X[date_list[-1]]-1) * (2*np.pi/12))
+test_X = test_X.drop(date_list[-1], axis=1)
+test_X['MoSold_cos'] = MoSold_cos
+test_X['MoSold_sin'] = MoSold_sin
 
 # Standardize the features on the test set
 MoSold_cos = np.cos((X_test[date_list[-1]]-1) * (2*np.pi/12))
@@ -494,8 +526,9 @@ X_test['MoSold_sin'] = MoSold_sin
 # log-transform the target variable, since submission are evaluated
 # on logarithm value of sales price.
 
-y = np.log(y)
-# summary_stats_numeric(y,y)
+y_train = np.log(y_train)
+test_y = np.log(test_y)
+# summary_stats_numeric(y_train,y_train)
 
 # Linear Regression with multiple variables
 linear_reg = LinearRegression()
@@ -514,15 +547,15 @@ linear_reg = LinearRegression()
 
 def cv_rmse(model):
     kf = KFold(n_splits=5, shuffle=True, random_state=123)
-    rmse = np.sqrt(-cross_val_score(model, X, y, cv=kf,
+    rmse = np.sqrt(-cross_val_score(model, X_train, y_train, cv=kf,
                                     scoring='neg_mean_squared_error'))
     return rmse
 
-
-reg = LinearRegression().fit(X, y)
+# Check results on the training set
+reg = LinearRegression().fit(X_train, y_train)
 theta = reg.coef_
-prediction = np.dot(X, theta) + reg.intercept_
-rmse = np.sqrt(np.sum(np.power(y-prediction, 2))/len(y))
+prediction = np.dot(X_train, theta) + reg.intercept_
+rmse1 = np.sqrt(np.sum(np.power(y_train-prediction, 2))/len(y_train))
 
 # overfitting
 score = cv_rmse(linear_reg)
@@ -532,7 +565,7 @@ print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
               0.0005125, 0.0006125, 0.000625, 0.00125]
-              
+
 # Narrow step between min points
 #np.arange(0.0003125, 0.000625, 0.0001)
 
@@ -562,16 +595,17 @@ print("\nLasso score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 
 # TO DO
-# create trade-off graph variance-bias
-# Create a test set of 20%: too see if it has a good generalization
+
 # check cross-validation implementation
+# implement a function or class that transform cyclic representation
 # interpret the coefs.
+
 # 2.3.1 Log transformation
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # FEATURE ENGINEERING
 # Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
 # boxplot by categories
-# X['MoYrSold'] = X['MoSold'].map(str) + '-' + X['YrSold'].map(str)
-# X['MoYrSold'] = pd.to_datetime(X['MoYrSold'], format='%m-%Y')
+# X_train['MoYrSold'] = X_train['MoSold'].map(str) + '-' + X_train['YrSold'].map(str)
+# X_train['MoYrSold'] = pd.to_datetime(X_train['MoYrSold'], format='%m-%Y')
 # PCA and Correlation graph
 # log transformation
