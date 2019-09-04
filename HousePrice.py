@@ -474,9 +474,9 @@ MoSold_sin = np.sin((X[date_list[-1]]-1) * (2*np.pi/12))
 
 #fig, ax = plt.subplots()
 #plt.scatter(MoSold_cos, MoSold_sin)
-#for i, txt in enumerate((X[date_list[-1]]-1)):
+# for i, txt in enumerate((X[date_list[-1]]-1)):
 #    ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
-#plt.show()
+# plt.show()
 
 X = X.drop(date_list[-1], axis=1)
 X['MoSold_cos'] = MoSold_cos
@@ -491,15 +491,14 @@ X_test['MoSold_sin'] = MoSold_sin
 
 # 3. MODELS
 
-# log-transform the target variable, since submission are evaluated 
+# log-transform the target variable, since submission are evaluated
 # on logarithm value of sales price.
 
 y = np.log(y)
-#summary_stats_numeric(y,y)
+# summary_stats_numeric(y,y)
 
 # Linear Regression with multiple variables
 linear_reg = LinearRegression()
-lasso = Lasso(alpha = 0.0005, random_state = 1)
 
 # 4. PREDICT AND ACCURACIES
 # Cross Validation Strategy
@@ -508,30 +507,63 @@ lasso = Lasso(alpha = 0.0005, random_state = 1)
 # bias-variance tradeoff.
 
 # Choice of Metric
-# Submissions are evaluated on Root-Mean-Squared-Error (RMSE) between the logarithm of the predicted 
-# value and the logarithm of the observed sales price. 
+# Submissions are evaluated on Root-Mean-Squared-Error (RMSE) between the logarithm of the predicted
+# value and the logarithm of the observed sales price.
 # (Taking logs means that errors in predicting expensive houses and cheap houses will affect the result equally.)
 
+
 def cv_rmse(model):
-    kf = KFold(n_splits = 5, shuffle = True, random_state = 123)
-    rmse = np.sqrt(-cross_val_score(model, X, y, cv=kf, scoring='neg_mean_squared_error'))
+    kf = KFold(n_splits=5, shuffle=True, random_state=123)
+    rmse = np.sqrt(-cross_val_score(model, X, y, cv=kf,
+                                    scoring='neg_mean_squared_error'))
     return rmse
+
 
 reg = LinearRegression().fit(X, y)
 theta = reg.coef_
 prediction = np.dot(X, theta) + reg.intercept_
-rmse = np.sqrt(np.sum(np.power(y-prediction,2))/len(y))
+rmse = np.sqrt(np.sum(np.power(y-prediction, 2))/len(y))
 
 # overfitting
 score = cv_rmse(linear_reg)
-print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
+print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(
+    score.mean(), score.std()))
 
+# Find the optimal alpha
+alpha_list = [0.00015625, 0.0003125, 0.0004125,
+              0.0005125, 0.0006125, 0.000625, 0.00125]
+              
+# Narrow step between min points
+#np.arange(0.0003125, 0.000625, 0.0001)
+
+# Create a set of models with different degrees or any other variants
+
+score = []
+for elem in alpha_list:
+    lasso = Lasso(alpha=elem, random_state=1)
+    score.append(cv_rmse(lasso).mean())
+
+# Regularization and Bias/Variance graph
+plt.plot(alpha_list, score)
+plt.title('Regularization Bias/Variance')
+plt.xlabel('alpha')
+plt.ylabel('Cross validation error')
+
+plt.scatter(alpha_list[np.argmin(score)],
+            score[np.argmin(score)], c='r')
+plt.text(alpha_list[np.argmin(score)],
+         score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
+plt.show()
+
+# Select the best combo that produces the lowest error on cv
+lasso = Lasso(alpha_list[np.argmin(score)], random_state=1)
 score = cv_rmse(lasso)
-print("\nLasso score: {:.4f} ({:.4f})\n".format(score.mean(), score.std()))
+print("\nLasso score: {:.4f} ({:.4f})\n".format(
+    score.mean(), score.std()))
 
 # TO DO
 # create trade-off graph variance-bias
-# crete graph for parameter lamda
+# Create a test set of 20%: too see if it has a good generalization
 # check cross-validation implementation
 # interpret the coefs.
 # 2.3.1 Log transformation
