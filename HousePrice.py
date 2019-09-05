@@ -25,7 +25,7 @@ y = data.loc[:, 'SalePrice']
 
 # Create a 20% test set to see if the model generalize well
 X_train, test_X, y_train, test_y = train_test_split(X, y, test_size=0.2,
-                                                    random_state=42)
+                                                    random_state=765)
 
 # Apply the same transformation to the test set.
 X_test = dt_test.iloc[::, 1:]
@@ -276,7 +276,8 @@ cat_var = X_train.select_dtypes(include=['category']).columns
 num_var = X_train.select_dtypes(include=['int', 'float']).columns
 
 # scatterplot of two variable, regression line and 95% confidence
-# Adjust for OUTLIERS and HIGH LEVERAGE POINTS
+# Adjust for OUTLIERS and HIGH LEVERAGE POINTS !!
+# Implement a better mechanism to spot them
 # Drop observations with high leverage points in LotFrontage
 #1298, 934
 X_train = X_train.drop([1298, 934])
@@ -309,6 +310,7 @@ X_test = X_test.drop('GarageCars', axis=1)
 
 # High correlation with TotBsmSF and FistFloorSF
 # Instead of dropping the variable we add them together
+
 X_train['TotalSF'] = X_train['TotalBsmtSF'] + \
     X_train['1stFlrSF'] + X_train['2ndFlrSF']
 X_train = X_train.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
@@ -322,6 +324,97 @@ X_test['TotalSF'] = X_test['TotalBsmtSF'] + \
 X_test = X_test.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
 
 num_var = num_var.drop(['GarageCars', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF'])
+
+
+# High negative correlation between BsmtFinSF1 and BsmtUnfSF
+# check relationship within the variables and within the sale price.
+X_train['BsmtFinSF'] = X_train['BsmtFinSF1'] + \
+    X_train['BsmtFinSF2'] - X_train['BsmtUnfSF']
+# BsmtFinSF2 almost irrelevant
+test_X['BsmtFinSF'] = test_X['BsmtFinSF1'] + \
+    test_X['BsmtFinSF2'] - test_X['BsmtUnfSF']
+X_test['BsmtFinSF'] = X_test['BsmtFinSF1'] + \
+    X_test['BsmtFinSF2'] - X_test['BsmtUnfSF']
+
+#sns.jointplot(X_train['BsmtUnfSF'], X_train['BsmtSF'])
+X_train = X_train.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
+test_X = test_X.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
+X_test = X_test.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
+
+num_var = num_var.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'])
+
+
+# FEATURES ENGINEERING
+# Many bathrooms variables with few observations each add them all together
+# General trend more bathroom better, and full is better than half
+# represent it numerically
+X_train['Bathroom'] = X_train['BsmtFullBath'] + X_train['FullBath'] + \
+    0.5*X_train['BsmtHalfBath'] + 0.5*X_train['HalfBath']
+test_X['Bathroom'] = test_X['BsmtFullBath'] + test_X['FullBath'] + \
+    0.5*test_X['BsmtHalfBath'] + 0.5*test_X['HalfBath']
+X_test['Bathroom'] = X_test['BsmtFullBath'] + X_test['FullBath'] + \
+    0.5*X_test['BsmtHalfBath'] + 0.5*X_test['HalfBath']
+
+#summary_stats_numeric(X_train['Bathroom'], y_train)
+
+X_train = X_train.drop(
+    ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'], axis=1)
+test_X = test_X.drop(
+    ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'], axis=1)
+X_test = X_test.drop(
+    ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'], axis=1)
+
+num_var = num_var.drop(
+    ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'])
+
+# Many porch variables with few observations each add them all together
+# to reduce the number of missing/0
+# summary_stats_numeric(X_train['OpenPorchSF'], y_train)
+X_train['TotPorchSF'] = X_train['WoodDeckSF'] + X_train['OpenPorchSF'] +\
+    X_train['EnclosedPorch'] + X_train['3SsnPorch'] + X_train['ScreenPorch']
+test_X['TotPorchSF'] = test_X['WoodDeckSF'] + test_X['OpenPorchSF'] +\
+    test_X['EnclosedPorch'] + test_X['3SsnPorch'] + test_X['ScreenPorch']
+X_test['TotPorchSF'] = X_test['WoodDeckSF'] + X_test['OpenPorchSF'] +\
+    X_test['EnclosedPorch'] + X_test['3SsnPorch'] + X_test['ScreenPorch']
+
+X_train = X_train.drop(
+    ['WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch'], axis=1)
+test_X = test_X.drop(
+    ['WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch'], axis=1)
+X_test = X_test.drop(
+    ['WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch'], axis=1)
+
+num_var = num_var.drop(
+    ['WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch'])
+
+# summary stats, categorical, numerical, and bivariate
+# Transform pool in categorical variable (too many zeros)
+#summary_stats_numeric(X_train['PoolArea'], y_train)
+#summary_stats_category(X_train['PoolQC'])
+#bivariate_distr_categorical(X_train['PoolQC'], y_train)
+X_train['WithPool'] = X_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+#bivariate_distr_categorical(X_train['WithPool'], y_train)
+test_X['WithPool'] = test_X['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+X_test['WithPool'] = X_test['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
+
+X_train = X_train.drop(['PoolArea'], axis=1)
+test_X = test_X.drop(['PoolArea'], axis=1)
+X_test = X_test.drop(['PoolArea'], axis=1)
+
+# Econding as binomial
+num_var = num_var.drop(['PoolArea'])
+
+X_train['Fireplaces'] = X_train['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+#bivariate_distr_categorical(X_train['Fireplaces'], y_train)
+test_X['Fireplaces'] = test_X['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+X_test['Fireplaces'] = X_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+
+# Encoding as binomial
+num_var = num_var.drop(['Fireplaces'])
+
+### Adjust Encodings!!
+### check numerical variable if non-linear transformation is needed
+### check categorical variables for futures engineering!
 
 # Input top frequency category checking for price range
 # NOTE: Imputation of missing needs to be the same in the test set
@@ -352,9 +445,10 @@ summary_stats_numeric(X_train['LotFrontage'], y_train)
 # 2.3 Feature Encoding
 
 # Encode ordinal features
-ord_enc_0 = OrdinalEncoder()
+
+ord_enc_0 = OrdinalEncoder(categories=[list(range(1, 11))]*len(ord_list0))
 ord_enc_0 = ord_enc_0.fit(X_train[ord_list0])
-ord_enc_0.categories_  # 0 category represent the baseline (1)
+ord_enc_0.categories_  # First category represent the baseline
 X_train[ord_list0] = ord_enc_0.transform(X_train[ord_list0])
 test_X[ord_list0] = ord_enc_0.transform(test_X[ord_list0])
 
@@ -565,7 +659,7 @@ linear_reg = LinearRegression()
 
 
 def cv_rmse(model):
-    kf = KFold(n_splits=5, shuffle=True, random_state=123)
+    kf = KFold(n_splits=5, shuffle=True, random_state=234)
     rmse = np.sqrt(-cross_val_score(model, X_train, y_train, cv=kf,
                                     scoring='neg_mean_squared_error'))
     return rmse
@@ -577,6 +671,8 @@ theta = reg.coef_
 train_prediction = np.dot(X_train, theta) + reg.intercept_
 rmse_train = np.sqrt(
     np.sum(np.power(y_train-train_prediction, 2))/len(y_train))
+print('rmse_train for linear regression: ', rmse_train)
+
 # After droping leverege points in LotFrontage rmse remain the same 0.0938
 
 # Check results on the test set
@@ -584,6 +680,7 @@ test_prediction = pd.Series(np.dot(test_X, theta) + reg.intercept_)
 test_prediction.index = test_X.index
 
 rmse_test = np.sqrt(np.sum(np.power(test_y-test_prediction, 2))/len(test_y))
+print('rmse_test for linear regression: ', rmse_test)
 # 204505871.74563393
 # after 1839666592.5665817
 # after adjusting for collinearity (Garage and TotSF) 0.1240 !!!!
@@ -600,7 +697,7 @@ print('After adjusting for GarageCars TotalSF and score: LinearRegression score:
 # analysis of residuals
 residuals = test_y - test_prediction
 sns.residplot(test_prediction, residuals, lowess=True,
-              line_kws={'color':'red'})
+              line_kws={'color': 'red'})
 plt.title('After adjusting for TotalSF and GarageCars')
 plt.xlabel('Fitted values (TestPrediction)')
 plt.ylabel('Residuals')
@@ -648,7 +745,7 @@ alpha_list = [0.00015625, 0.0003125, 0.0004125,
 
 score = []
 for elem in alpha_list:
-    lasso = Lasso(alpha=elem, random_state=1)
+    lasso = Lasso(alpha=elem, random_state=56)
     score.append(cv_rmse(lasso).mean())
 
 # Regularization and Bias/Variance graph
@@ -656,7 +753,6 @@ plt.plot(alpha_list, score)
 plt.title('Regularization Bias/Variance')
 plt.xlabel('alpha')
 plt.ylabel('Cross validation error')
-
 plt.scatter(alpha_list[np.argmin(score)],
             score[np.argmin(score)], c='r')
 plt.text(alpha_list[np.argmin(score)],
@@ -664,7 +760,7 @@ plt.text(alpha_list[np.argmin(score)],
 plt.show()
 
 # Select the best combo that produces the lowest error on cv
-lasso = Lasso(alpha_list[np.argmin(score)], random_state=1)
+lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
 score = cv_rmse(lasso)
 print("\nLasso score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
