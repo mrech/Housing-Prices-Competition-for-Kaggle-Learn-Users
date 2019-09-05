@@ -9,7 +9,6 @@ from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
 
-
 # 0. IMPORT DATASETS
 
 # Alternatuive: keep_default_na = False
@@ -119,7 +118,7 @@ test_X = test_X.fillna(value=values)
 X_test = X_test.fillna(value=values)
 
 # Check for missing values on the output
-#np.sum(pd.isna(y_train))
+# np.sum(pd.isna(y_train))
 
 # summary_stats_numeric(y_train, y_train)
 
@@ -140,7 +139,8 @@ for i in cat_list:
 
 # Visual inspection
 # for i in cat_list:
-#    summary_stats_category(X_train[i])
+#   summary_stats_category(X_train[i])
+
 # Note: MasVnrType, Electrical (have missing values)
 
 # Adjust for ordered categorical variables
@@ -277,6 +277,11 @@ num_var = X_train.select_dtypes(include=['int', 'float']).columns
 
 # scatterplot of two variable, regression line and 95% confidence
 # Adjust for OUTLIERS and HIGH LEVERAGE POINTS
+# Drop observations with high leverage points in LotFrontage
+#1298, 934
+X_train = X_train.drop([1298, 934])
+y_train = y_train.drop([1298, 934])
+
 # (laverage stats with multiple predictors)
 # for i in num_var:
 #    sns.regplot(X_train[i], y)
@@ -286,23 +291,37 @@ num_var = X_train.select_dtypes(include=['int', 'float']).columns
 
 corr = X_train.corr()
 
-# Generate a mask for the upper triangle
-mask = np.zeros_like(corr, dtype=np.bool)
-mask[np.tril_indices_from(mask)] = True
-
 # Set up plt figure
-fig, ax = plt.subplots(figsize=(50, 100))
+fig, ax = plt.subplots(figsize=(12, 9))
 
-# Generate a custom diverging colormap
-cmap = sns.diverging_palette(220, 10, as_cmap=True)
+# Draw the heatmap
+sns.heatmap(corr, center=0, linewidths=.5)
+plt.show()
 
-# Draw the heatmap with the mask
 # Adjust for COLLINEARITY/Multicollinearity
 # compute the variance inflation factor
-sns.heatmap(corr, mask=mask, cmap=cmap, center=0, linewidths=.5)
-plt.xticks(rotation=90)
-plt.yticks(rotation=45)
-plt.show()
+# Drop GarageCars because highly correlated with GarageCars
+# and most of the Sales Price variability already explained by GrageArea
+# same variables calculated with different measurements
+X_train = X_train.drop('GarageCars', axis=1)
+test_X = test_X.drop('GarageCars', axis=1)
+X_test = X_test.drop('GarageCars', axis=1)
+
+# High correlation with TotBsmSF and FistFloorSF
+# Instead of dropping the variable we add them together
+X_train['TotalSF'] = X_train['TotalBsmtSF'] + \
+    X_train['1stFlrSF'] + X_train['2ndFlrSF']
+X_train = X_train.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
+
+test_X['TotalSF'] = test_X['TotalBsmtSF'] + \
+    test_X['1stFlrSF'] + test_X['2ndFlrSF']
+test_X = test_X.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
+
+X_test['TotalSF'] = X_test['TotalBsmtSF'] + \
+    X_test['1stFlrSF'] + X_test['2ndFlrSF']
+X_test = X_test.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
+
+num_var = num_var.drop(['GarageCars', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF'])
 
 # Input top frequency category checking for price range
 # NOTE: Imputation of missing needs to be the same in the test set
@@ -394,7 +413,7 @@ test_X[ord_list4] = ord_enc_4.transform(test_X[ord_list4])
 # Encode the features on the test set
 X_test[ord_list4] = ord_enc_4.transform(X_test[ord_list4])
 
-cat_enc = OneHotEncoder(sparse = False, handle_unknown='ignore')
+cat_enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
 cat_enc = cat_enc.fit(X_train[cat_list])
 cat_enc.categories_
 
@@ -409,12 +428,12 @@ cat_test_X = pd.DataFrame(cat_enc.transform(test_X[cat_list]))
 test_X = test_X.drop(cat_list, axis=1)
 # Adjust for random indexing
 cat_test_X.index = test_X.index
-test_X = pd.concat([test_X, cat_test_X], axis = 1)
+test_X = pd.concat([test_X, cat_test_X], axis=1)
 
 # Encode the features on the test set
 cat_test = pd.DataFrame(cat_enc.transform(X_test[cat_list]))
 X_test = X_test.drop(cat_list, axis=1)
-X_test = pd.concat([X_test, cat_test], axis = 1)
+X_test = pd.concat([X_test, cat_test], axis=1)
 
 # 2.4 Features Standardization
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
@@ -528,7 +547,7 @@ X_test['MoSold_sin'] = MoSold_sin
 
 y_train = np.log(y_train)
 test_y = np.log(test_y)
-# summary_stats_numeric(y_train,y_train)
+summary_stats_numeric(test_y, test_y)
 
 # Linear Regression with multiple variables
 linear_reg = LinearRegression()
@@ -551,16 +570,72 @@ def cv_rmse(model):
                                     scoring='neg_mean_squared_error'))
     return rmse
 
+
 # Check results on the training set
 reg = LinearRegression().fit(X_train, y_train)
 theta = reg.coef_
-prediction = np.dot(X_train, theta) + reg.intercept_
-rmse1 = np.sqrt(np.sum(np.power(y_train-prediction, 2))/len(y_train))
+train_prediction = np.dot(X_train, theta) + reg.intercept_
+rmse_train = np.sqrt(
+    np.sum(np.power(y_train-train_prediction, 2))/len(y_train))
+# After droping leverege points in LotFrontage rmse remain the same 0.0938
 
-# overfitting
+# Check results on the test set
+test_prediction = pd.Series(np.dot(test_X, theta) + reg.intercept_)
+test_prediction.index = test_X.index
+
+rmse_test = np.sqrt(np.sum(np.power(test_y-test_prediction, 2))/len(test_y))
+# 204505871.74563393
+# after 1839666592.5665817
+# after adjusting for collinearity (Garage and TotSF) 0.1240 !!!!
+
+# Check results on the cross validation
 score = cv_rmse(linear_reg)
 print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
+print('Before drpping LotFrontage LinearRegression score: 5056093844.8706 (4064033453.8808)')
+print('After dropping LotFrontage LinearRegression score: 1047559176.9406 (620718954.2598)')
+print('After adjusting for GarageCars TotalSF and score: LinearRegression score: 0.1443 (0.0194)')
+
+# Error Analysis on the test data
+# analysis of residuals
+residuals = test_y - test_prediction
+sns.residplot(test_prediction, residuals, lowess=True,
+              line_kws={'color':'red'})
+plt.title('After adjusting for TotalSF and GarageCars')
+plt.xlabel('Fitted values (TestPrediction)')
+plt.ylabel('Residuals')
+plt.show()
+# We have large leverage observations (creates clusters).
+# Adjusting for collinearity fixed the clusters
+# After adjusting for GarageCars and TotalSF there is
+# some evidence of a slight non-linear relationship in the data
+
+# Identify and eliminate high leverege points visually
+sns.residplot(test_X['LotFrontage'], residuals)
+plt.show()
+
+# LEVERAGE STATISTIC
+h = 1/len(test_y) + \
+    (np.power(test_X['LotFrontage'] - test_X['LotFrontage'].mean(), 2) /
+     sum(np.power(test_X['LotFrontage'] - test_X['LotFrontage'].mean(), 2)))
+# 1298, 934
+
+plt.scatter(h, residuals)
+plt.xlabel('Laverage')
+plt.ylabel('Residuals')
+plt.show()
+
+''' 
+Num_var
+Index(['LotFrontage', 'LotArea', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2',
+       'BsmtUnfSF', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF',
+       'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath',
+       'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
+       'GarageCars', 'GarageArea', 'WoodDeckSF', 'OpenPorchSF',
+       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal'],
+      dtype='object')
+'''
+
 
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
@@ -595,17 +670,18 @@ print("\nLasso score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 
 # TO DO
+# 2.3.1 Log transformation
+# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
+# 5.2 Box cox transform for skewd numerical data
 
 # check cross-validation implementation
 # implement a function or class that transform cyclic representation
+
 # interpret the coefs.
 
-# 2.3.1 Log transformation
-# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # FEATURE ENGINEERING
 # Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
 # boxplot by categories
 # X_train['MoYrSold'] = X_train['MoSold'].map(str) + '-' + X_train['YrSold'].map(str)
 # X_train['MoYrSold'] = pd.to_datetime(X_train['MoYrSold'], format='%m-%Y')
 # PCA and Correlation graph
-# log transformation
