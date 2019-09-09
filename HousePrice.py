@@ -3,8 +3,9 @@ import pandas as pd
 import matplotlib.pylab as plt
 import numpy as np
 import seaborn as sns
+from scipy import stats
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
@@ -275,19 +276,6 @@ col_miss_test = col_miss_test[col_miss_test['N_missing'] > 0]
 cat_var = X_train.select_dtypes(include=['category']).columns
 num_var = X_train.select_dtypes(include=['int', 'float']).columns
 
-# scatterplot of two variable, regression line and 95% confidence
-# Adjust for OUTLIERS and HIGH LEVERAGE POINTS !!
-# Implement a better mechanism to spot them
-# Drop observations with high leverage points in LotFrontage
-#1298, 934
-X_train = X_train.drop([1298, 934])
-y_train = y_train.drop([1298, 934])
-
-# (laverage stats with multiple predictors)
-# for i in num_var:
-#    sns.regplot(X_train[i], y)
-#    plt.show()
-
 # compute correlation matrix
 
 corr = X_train.corr()
@@ -304,6 +292,7 @@ plt.show()
 # Drop GarageCars because highly correlated with GarageCars
 # and most of the Sales Price variability already explained by GrageArea
 # same variables calculated with different measurements
+# (alternatively keep it)
 X_train = X_train.drop('GarageCars', axis=1)
 test_X = test_X.drop('GarageCars', axis=1)
 X_test = X_test.drop('GarageCars', axis=1)
@@ -324,7 +313,7 @@ X_test['TotalSF'] = X_test['TotalBsmtSF'] + \
 X_test = X_test.drop(['TotalBsmtSF', '1stFlrSF', '2ndFlrSF'], axis=1)
 
 num_var = num_var.drop(['GarageCars', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF'])
-
+num_var = num_var.insert(len(num_var), 'TotalSF')
 
 # High negative correlation between BsmtFinSF1 and BsmtUnfSF
 # check relationship within the variables and within the sale price.
@@ -342,7 +331,7 @@ test_X = test_X.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
 X_test = X_test.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
 
 num_var = num_var.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'])
-
+num_var = num_var.insert(len(num_var), 'BsmtFinSF')
 
 # FEATURES ENGINEERING
 # Many bathrooms variables with few observations each add them all together
@@ -366,6 +355,7 @@ X_test = X_test.drop(
 
 num_var = num_var.drop(
     ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'])
+num_var = num_var.insert(len(num_var), 'Bathroom')
 
 # Many porch variables with few observations each add them all together
 # to reduce the number of missing/0
@@ -386,11 +376,12 @@ X_test = X_test.drop(
 
 num_var = num_var.drop(
     ['WoodDeckSF', 'OpenPorchSF', 'EnclosedPorch', '3SsnPorch', 'ScreenPorch'])
+num_var = num_var.insert(len(num_var), 'TotPorchSF')
 
 # summary stats, categorical, numerical, and bivariate
 # Transform pool in categorical variable (too many zeros)
 #summary_stats_numeric(X_train['PoolArea'], y_train)
-#summary_stats_category(X_train['PoolQC'])
+# summary_stats_category(X_train['PoolQC'])
 #bivariate_distr_categorical(X_train['PoolQC'], y_train)
 X_train['WithPool'] = X_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
 #bivariate_distr_categorical(X_train['WithPool'], y_train)
@@ -403,18 +394,83 @@ X_test = X_test.drop(['PoolArea'], axis=1)
 
 # Econding as binomial
 num_var = num_var.drop(['PoolArea'])
+cat_var = cat_var.insert(len(cat_var), 'WithPool')
+bin_list = ['WithPool']
 
-X_train['Fireplaces'] = X_train['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+X_train['WithFireplace'] = X_train['Fireplaces'].apply(
+    lambda x: 1 if x > 0 else 0)
 #bivariate_distr_categorical(X_train['Fireplaces'], y_train)
-test_X['Fireplaces'] = test_X['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
-X_test['Fireplaces'] = X_test['Fireplaces'].apply(lambda x: 1 if x > 0 else 0)
+test_X['WithFireplace'] = test_X['Fireplaces'].apply(
+    lambda x: 1 if x > 0 else 0)
+X_test['WithFireplace'] = X_test['Fireplaces'].apply(
+    lambda x: 1 if x > 0 else 0)
 
 # Encoding as binomial
 num_var = num_var.drop(['Fireplaces'])
+cat_var = cat_var.insert(len(cat_var), 'WithFireplace')
+bin_list.append('WithFireplace')
 
-### Adjust Encodings!!
-### check numerical variable if non-linear transformation is needed
-### check categorical variables for futures engineering!
+X_train['WithAtMostOneKitchen'] = X_train['KitchenAbvGr'].apply(
+    lambda x: 0 if x > 1 else 1)
+test_X['WithAtMostOneKitchen'] = test_X['KitchenAbvGr'].apply(
+    lambda x: 0 if x > 1 else 1)
+X_test['WithAtMostOneKitchen'] = X_test['KitchenAbvGr'].apply(
+    lambda x: 0 if x > 1 else 1)
+
+# Encoding as binomial
+num_var = num_var.drop(['KitchenAbvGr'])
+cat_var = cat_var.insert(len(cat_var), 'WithAtMostOneKitchen')
+bin_list.append('WithAtMostOneKitchen')
+
+# drop variables with have most of the observations (>75%) equal to 0
+X_train = X_train.drop(['LowQualFinSF', 'MiscVal'], axis=1)
+test_X = test_X.drop(['LowQualFinSF', 'MiscVal'], axis=1)
+X_test = X_test.drop(['LowQualFinSF', 'MiscVal'], axis=1)
+
+num_var = num_var.drop(['LowQualFinSF', 'MiscVal'])
+
+
+# check categorical variables for futures engineering!
+
+# scatterplot of two variable, regression line and 95% confidence
+# Adjust for OUTLIERS and HIGH LEVERAGE POINTS !!
+# Implement a better mechanism to spot them
+# Drop observations with high leverage points in LotFrontage
+
+# Find outliers/leverage points base on observation
+# hue to check against categorical variables
+# (avoid to delete important information)
+#sns.pairplot(X_train[num_var].dropna(), height=1.3)
+#plt.show()
+
+# (laverage stats with multiple predictors)
+#for i in num_var:
+#    sns.regplot(X_train[i], y_train)
+#    plt.show()
+
+summary_stats_numeric(X_train['BsmtFinSF'], y_train)
+drop_rows = np.concatenate((
+    list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]),
+    list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]),
+    list(X_train['LotFrontage'].index[X_train['LotFrontage'] > 300]),
+    list(X_train['LotArea'].index[X_train['LotArea'] > 100000]),
+    list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000])))
+
+def unique(list_value):
+    unique = []
+
+    for i in list_value:
+        if i not in unique:
+            unique.append(i)
+
+    return unique
+
+drop_rows = unique(drop_rows)
+
+X_train = X_train.drop(drop_rows)
+y_train = y_train.drop(drop_rows)
+
+#summary_stats_numeric(X_train['GrLivArea'], y_train)
 
 # Input top frequency category checking for price range
 # NOTE: Imputation of missing needs to be the same in the test set
@@ -440,7 +496,9 @@ test_X[num_var] = imp_num_miss.transform(test_X[num_var])
 # Impute the missing to the test set
 X_test[num_var] = imp_num_miss.transform(X_test[num_var])
 
-summary_stats_numeric(X_train['LotFrontage'], y_train)
+#summary_stats_numeric(X_train['LotFrontage'], y_train)
+
+## BOX-COX Transformationp
 
 # 2.3 Feature Encoding
 
@@ -529,6 +587,11 @@ cat_test = pd.DataFrame(cat_enc.transform(X_test[cat_list]))
 X_test = X_test.drop(cat_list, axis=1)
 X_test = pd.concat([X_test, cat_test], axis=1)
 
+## Binomial Encoding already done with if else statement
+#bin_enc = Binarizer()
+#bin_enc = bin_enc.fit(X_train[bin_list])
+#bin_var = pd.DataFrame(bin_enc.transform(X_train[bin_list]))
+
 # 2.4 Features Standardization
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
 # 1st strategy, take into account for sparsity and ourliers
@@ -565,10 +628,16 @@ test_X[small_std_var] = small_std_transf.transform(test_X[small_std_var])
 X_test[small_std_var] = small_std_transf.transform(X_test[small_std_var])
 
 # Standardize variables with outliers (Skewed distribution)
+# Transformation is still effected by outliers try Box Cox
 num_var = [i for i in num_var if i not in small_std_var]
+descriptive = pd.DataFrame.describe(X_train[num_var])
 
 skewed_transf = RobustScaler().fit(X_train[num_var])
 X_train[num_var] = skewed_transf.transform(X_train[num_var])
+
+#for i in num_var:
+#    summary_stats_numeric(X_train[i], y_train)
+
 test_X[num_var] = skewed_transf.transform(test_X[num_var])
 
 # Standardize the features on the test set
@@ -683,7 +752,8 @@ rmse_test = np.sqrt(np.sum(np.power(test_y-test_prediction, 2))/len(test_y))
 print('rmse_test for linear regression: ', rmse_test)
 # 204505871.74563393
 # after 1839666592.5665817
-# after adjusting for collinearity (Garage and TotSF) 0.1240 !!!!
+# after adjusting for collinearity (Garage and TotSF) 0.1240 !!!! (no true)
+
 
 # Check results on the cross validation
 score = cv_rmse(linear_reg)
@@ -692,6 +762,7 @@ print("\nLinearRegression score: {:.4f} ({:.4f})\n".format(
 print('Before drpping LotFrontage LinearRegression score: 5056093844.8706 (4064033453.8808)')
 print('After dropping LotFrontage LinearRegression score: 1047559176.9406 (620718954.2598)')
 print('After adjusting for GarageCars TotalSF and score: LinearRegression score: 0.1443 (0.0194)')
+print('BsmtSF LinearRegression score: 0.1334 (0.0173)')
 
 # Error Analysis on the test data
 # analysis of residuals
@@ -764,16 +835,12 @@ lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
 score = cv_rmse(lasso)
 print("\nLasso score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
+print('BsmtSF Lasso score: 0.1133 (0.0125)')
 
 # TO DO
 # 2.3.1 Log transformation
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
-# 5.2 Box cox transform for skewd numerical data
 
-# check cross-validation implementation
-# implement a function or class that transform cyclic representation
-
-# interpret the coefs.
 
 # FEATURE ENGINEERING
 # Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
