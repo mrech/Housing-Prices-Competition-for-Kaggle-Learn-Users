@@ -247,8 +247,8 @@ for i in ord_list4:
     X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
-# for i in ord_list:
-#    summary_stats_category(X_train[i])
+#for i in ord_list4:
+#   summary_stats_category(X_test[i])
 
 # 2.2. imput missing
 
@@ -431,7 +431,60 @@ num_var = num_var.drop(['LowQualFinSF', 'MiscVal'])
 
 
 # check categorical variables for futures engineering!
+#foo = pd.DataFrame(y_train)
+#foo.index = X_train.index
+#foo = pd.concat([X_train, y_train], axis=1)
+#sns.catplot('Alley', 'SalePrice', hue='Street', data=foo)
+# plt.show()
 
+# drop utilities all are AllPub (no add info)
+# summary_stats_category(X_train['Street'])
+#bivariate_distr_categorical(X_train['Street'], y_train)
+X_train = X_train.drop(['Utilities'], axis=1)
+test_X = test_X.drop(['Utilities'], axis=1)
+X_test = X_test.drop(['Utilities'], axis=1)
+
+cat_list.remove('Utilities')
+cat_var = cat_var.drop(['Utilities'])
+
+# check for overlap of info within categorical variables
+#sns.catplot('SaleCondition', 'SalePrice', hue='SaleType', data=foo)
+# plt.show()
+
+# Adjust yearbuild, year remodelled, garageyear >>> group them meaningful way
+# timeserie analysis
+#sns.swarmplot(pd.cut(X_train['YearRemodAdd'], 5), y_train)
+
+#bivariate_distr_categorical(pd.cut(X_train['YearRemodAdd'], 5), y_train)
+#plt.show()
+
+#X_train['YearBuilt'], fitbins = pd.cut(X_train['YearBuilt'], 3,
+                                    #labels=['Late800First900', 'Mind900', 'Late900First000'], retbins=True)
+
+#X_test['YearBuilt'] = pd.cut(X_test['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
+#test_X['YearBuilt'] = pd.cut(test_X['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
+
+#cat_list.append('YearBuilt')
+#date_list.remove('YearBuilt')
+
+# YearRemodAdd' 
+
+#X_train['YearRemodAdd'], fitbins = pd.cut(X_train['YearRemodAdd'], 5,
+#                                    labels=['49-62', '62-74', '74-86', '86-98',  '98-10'], retbins=True)
+
+#X_test['YearRemodAdd'] = pd.cut(X_test['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
+#test_X['YearRemodAdd'] = pd.cut(test_X['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
+
+#cat_list.append('YearRemodAdd')
+#date_list.remove('YearRemodAdd')
+
+#  GarageYrBlt'
+X_train = X_train.drop(['GarageYrBlt'], axis = 1)
+X_test = X_test.drop(['GarageYrBlt'], axis = 1)
+test_X = test_X.drop(['GarageYrBlt'], axis = 1)
+
+date_list.remove('GarageYrBlt')
+cat_var = cat_var.drop(['GarageYrBlt'])
 # scatterplot of two variable, regression line and 95% confidence
 # Adjust for OUTLIERS and HIGH LEVERAGE POINTS !!
 # Implement a better mechanism to spot them
@@ -445,8 +498,8 @@ num_var = num_var.drop(['LowQualFinSF', 'MiscVal'])
 
 # (laverage stats with multiple predictors)
 # for i in num_var:
-#    sns.regplot(X_train[i], y_train)
-#    plt.show()
+#   sns.regplot(X_train[i], y_train)
+#   plt.show()
 
 #summary_stats_numeric(X_train['BsmtFinSF'], y_train)
 drop_rows = np.concatenate((
@@ -501,6 +554,7 @@ X_test[num_var] = imp_num_miss.transform(X_test[num_var])
 #summary_stats_numeric(X_train['LotFrontage'], y_train)
 
 # BOX-COX Transformation
+# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.power_transform.html
 # for negative values
 
@@ -661,7 +715,8 @@ ord_enc_4 = ord_enc_4.fit(X_train[ord_list4])
 X_train[ord_list4] = ord_enc_4.transform(X_train[ord_list4])
 test_X[ord_list4] = ord_enc_4.transform(test_X[ord_list4])
 
-# Encode the features on the test set
+# Encode the features on the test set 
+#X_test.Functional.unique()
 X_test[ord_list4] = ord_enc_4.transform(X_test[ord_list4])
 
 cat_enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
@@ -834,6 +889,8 @@ print('rmse_test for linear regression: ', rmse_test)
 # 204505871.74563393
 # after 1839666592.5665817
 # after adjusting for collinearity (Garage and TotSF) 990527540.2560297
+# after yearbuilt rmse_test for linear regression:  378469691.54623526
+# after yearRemodelled rmse_test for linear regression:  1541625486.464488
 
 
 # Check results on the cross validation
@@ -845,13 +902,14 @@ print('After dropping LotFrontage LinearRegression score: 1047559176.9406 (62071
 print('After adjusting for GarageCars TotalSF and score: LinearRegression score: 0.1443 (0.0194)')
 print('BsmtSF LinearRegression score: 0.1334 (0.0173)')
 print('Box-Cox transformation LinearRegression score: 1299196641.8624 (1523032431.9894)')
+print('After yearBuild groupping LinearRegression score: 591093739.0732 (363526804.1697)')
 
 # Error Analysis on the test data
 # analysis of residuals
 residuals = test_y - test_prediction
 sns.residplot(test_prediction, residuals, lowess=True,
               line_kws={'color': 'red'})
-plt.title('After adjusting for TotalSF and GarageCars')
+plt.title('Fitted vs Residuals')
 plt.xlabel('Fitted values (TestPrediction)')
 plt.ylabel('Residuals')
 plt.show()
@@ -860,9 +918,15 @@ plt.show()
 # After adjusting for GarageCars and TotalSF there is
 # some evidence of a slight non-linear relationship in the data
 
-# Identify and eliminate high leverege points visually
-sns.residplot(test_X['LotFrontage'], residuals)
-plt.show()
+# Extremely small residuals
+# 1370, 1011
+# Extremely high
+# 398, 1270, 762, 326
+#foo = test_X.drop([398, 1270, 762, 326, 1370, 1011])
+#bar = residuals.drop([398, 1270, 762, 326, 1370, 1011])
+# Investigate around the correlation of error terms
+#sns.residplot(foo['GarageYrBlt'], bar)
+# plt.show()
 
 # LEVERAGE STATISTIC
 h = 1/len(test_y) + \
@@ -874,18 +938,6 @@ plt.scatter(h, residuals)
 plt.xlabel('Laverage')
 plt.ylabel('Residuals')
 plt.show()
-
-''' 
-Num_var
-Index(['LotFrontage', 'LotArea', 'MasVnrArea', 'BsmtFinSF1', 'BsmtFinSF2',
-       'BsmtUnfSF', 'TotalBsmtSF', '1stFlrSF', '2ndFlrSF', 'LowQualFinSF',
-       'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath', 'HalfBath',
-       'BedroomAbvGr', 'KitchenAbvGr', 'TotRmsAbvGrd', 'Fireplaces',
-       'GarageCars', 'GarageArea', 'WoodDeckSF', 'OpenPorchSF',
-       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'MiscVal'],
-      dtype='object')
-'''
-
 
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
@@ -918,13 +970,5 @@ score = cv_rmse(lasso)
 print("\nLasso score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 print('BsmtSF Lasso score: 0.1133 (0.0125)')
+print('yearBuilt groupping Lasso score: 0.1147 (0.0127)')
 
-# TO DO
-# 2.3.1 Log transformation
-# https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
-# FEATURE ENGINEERING
-# Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
-# boxplot by categories
-# X_train['MoYrSold'] = X_train['MoSold'].map(str) + '-' + X_train['YrSold'].map(str)
-# X_train['MoYrSold'] = pd.to_datetime(X_train['MoYrSold'], format='%m-%Y')
-# PCA and Correlation graph
