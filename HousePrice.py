@@ -5,7 +5,7 @@ import numpy as np
 import seaborn as sns
 from scipy import stats
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer, PowerTransformer
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
@@ -441,20 +441,21 @@ num_var = num_var.drop(['LowQualFinSF', 'MiscVal'])
 # hue to check against categorical variables
 # (avoid to delete important information)
 #sns.pairplot(X_train[num_var].dropna(), height=1.3)
-#plt.show()
+# plt.show()
 
 # (laverage stats with multiple predictors)
-#for i in num_var:
+# for i in num_var:
 #    sns.regplot(X_train[i], y_train)
 #    plt.show()
 
-summary_stats_numeric(X_train['BsmtFinSF'], y_train)
+#summary_stats_numeric(X_train['BsmtFinSF'], y_train)
 drop_rows = np.concatenate((
     list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]),
     list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]),
     list(X_train['LotFrontage'].index[X_train['LotFrontage'] > 300]),
     list(X_train['LotArea'].index[X_train['LotArea'] > 100000]),
     list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000])))
+
 
 def unique(list_value):
     unique = []
@@ -464,6 +465,7 @@ def unique(list_value):
             unique.append(i)
 
     return unique
+
 
 drop_rows = unique(drop_rows)
 
@@ -498,7 +500,104 @@ X_test[num_var] = imp_num_miss.transform(X_test[num_var])
 
 #summary_stats_numeric(X_train['LotFrontage'], y_train)
 
-## BOX-COX Transformationp
+# BOX-COX Transformation
+# https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.power_transform.html
+# for negative values
+
+# check numerical variable if non-linear transformation are needed
+# or apply Box cox transformation for skewd numerical data
+# (Apply after imputation)
+# for i in num_var:
+#    summary_stats_numeric(X_train[i], y_train)
+
+# create a class
+# add a constant to 0s in order to apply Box-Cox transformation
+# find num_var with zeros
+# find num_var with negative values
+
+
+def ZeroNeg_num_var(col_list):
+    '''
+    Find num variables which contains zeros
+    Input: list of numerica variable names
+    '''
+    zero_col = []
+    neg_col = []
+
+    for i in col_list:
+        if any(X_train[i] < 0):
+            neg_col.append(i)
+        elif any(X_train[i] == 0):
+            zero_col.append(i)
+
+    return zero_col, neg_col
+
+
+def min_value_zero(zero_col):
+    '''
+    Calculate min values above zero, divide them by 2 and
+    return imputed values for each columns
+
+    Input: list of name columns with zero values
+    Return: imput value for each columns
+    '''
+    imput_val = []
+    for i in zero_col:
+        x = min(X_train[i].iloc[np.where(X_train[i] > 0)])
+        imput_val.append(x/2)
+
+    return imput_val
+
+
+zero_col, neg_col = ZeroNeg_num_var(num_var)
+imput_val = min_value_zero(zero_col)
+
+# imput on the training and test sets
+for num, txt in enumerate(zero_col):
+    X_train[txt] = [x+imput_val[num] if x == 0 else x for x in X_train[txt]]
+    test_X[txt] = [x+imput_val[num] if x == 0 else x for x in test_X[txt]]
+    X_test[txt] = [x+imput_val[num] if x == 0 else x for x in X_test[txt]]
+
+# transform training data & save lambda value
+strictly_pos = num_var.drop(neg_col)
+transf_col = []
+fitted_lambda = []
+for i in strictly_pos:
+    transf, fitted = stats.boxcox(X_train[i])
+    transf_col.append(transf)
+    fitted_lambda.append(fitted)
+
+transf_col = pd.DataFrame(transf_col).T
+transf_col.columns = strictly_pos
+transf_col.index = X_train.index
+X_train[strictly_pos] = transf_col
+
+# Use lambda value to transform test data
+test_X[strictly_pos] = stats.boxcox(test_X[strictly_pos], fitted_lambda)
+X_test[strictly_pos] = stats.boxcox(X_test[strictly_pos], fitted_lambda)
+
+# Use power transform for neg_col
+power_transf = PowerTransformer().fit(X_train[neg_col])
+
+X_train[neg_col] = power_transf.transform(X_train[neg_col])
+X_test[neg_col] = power_transf.transform(X_test[neg_col])
+test_X[neg_col] = power_transf.transform(test_X[neg_col])
+
+# investigate probplot
+# for i in strictly_pos:
+#    fig, ax = plt.subplots()
+#    # plot against normal distribution
+#    prob = stats.probplot(X_train[i], dist=stats.norm, plot=ax)
+#    ax.set_title('Probplot against normal distribution %s' % (i))
+#    plt.show()
+
+# drop MasVnrArea many zeros values and
+# do not follow the normality assumption
+X_train = X_train.drop('MasVnrArea', axis=1)
+test_X = test_X.drop('MasVnrArea', axis=1)
+X_test = X_test.drop('MasVnrArea', axis=1)
+
+num_var = num_var.drop(['MasVnrArea'])
 
 # 2.3 Feature Encoding
 
@@ -587,7 +686,7 @@ cat_test = pd.DataFrame(cat_enc.transform(X_test[cat_list]))
 X_test = X_test.drop(cat_list, axis=1)
 X_test = pd.concat([X_test, cat_test], axis=1)
 
-## Binomial Encoding already done with if else statement
+# Binomial Encoding already done with if else statement
 #bin_enc = Binarizer()
 #bin_enc = bin_enc.fit(X_train[bin_list])
 #bin_var = pd.DataFrame(bin_enc.transform(X_train[bin_list]))
@@ -596,24 +695,6 @@ X_test = pd.concat([X_test, cat_test], axis=1)
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
 # 1st strategy, take into account for sparsity and ourliers
 # Extract variables with sparse data where at least 25% of observations is 0
-descriptive = pd.DataFrame.describe(X_train[num_var])
-sparse = descriptive.loc['25%', :] == 0
-sparse_var = sparse[np.where(sparse)[0]].index.tolist()
-
-sparse_transf = MaxAbsScaler().fit(X_train[sparse_var])
-X_train[sparse_var] = sparse_transf.transform(X_train[sparse_var])
-test_X[sparse_var] = sparse_transf.transform(test_X[sparse_var])
-
-# Standardize the features on the test set
-X_test[sparse_var] = sparse_transf.transform(X_test[sparse_var])
-
-# for i in sparse_var:
-#    summary_stats_numeric(X_train[i], y_train)
-
-num_var = num_var.tolist()
-
-# list comprehension
-num_var = [i for i in num_var if i not in sparse_var]
 descriptive = pd.DataFrame.describe(X_train[num_var])
 
 # Standardize variable with very small standard deviations
@@ -635,7 +716,7 @@ descriptive = pd.DataFrame.describe(X_train[num_var])
 skewed_transf = RobustScaler().fit(X_train[num_var])
 X_train[num_var] = skewed_transf.transform(X_train[num_var])
 
-#for i in num_var:
+# for i in num_var:
 #    summary_stats_numeric(X_train[i], y_train)
 
 test_X[num_var] = skewed_transf.transform(test_X[num_var])
@@ -752,7 +833,7 @@ rmse_test = np.sqrt(np.sum(np.power(test_y-test_prediction, 2))/len(test_y))
 print('rmse_test for linear regression: ', rmse_test)
 # 204505871.74563393
 # after 1839666592.5665817
-# after adjusting for collinearity (Garage and TotSF) 0.1240 !!!! (no true)
+# after adjusting for collinearity (Garage and TotSF) 990527540.2560297
 
 
 # Check results on the cross validation
@@ -763,6 +844,7 @@ print('Before drpping LotFrontage LinearRegression score: 5056093844.8706 (40640
 print('After dropping LotFrontage LinearRegression score: 1047559176.9406 (620718954.2598)')
 print('After adjusting for GarageCars TotalSF and score: LinearRegression score: 0.1443 (0.0194)')
 print('BsmtSF LinearRegression score: 0.1334 (0.0173)')
+print('Box-Cox transformation LinearRegression score: 1299196641.8624 (1523032431.9894)')
 
 # Error Analysis on the test data
 # analysis of residuals
@@ -840,8 +922,6 @@ print('BsmtSF Lasso score: 0.1133 (0.0125)')
 # TO DO
 # 2.3.1 Log transformation
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
-
-
 # FEATURE ENGINEERING
 # Group by category - create summary variables (ex. garage) to solve for MULTICOLLINEARITY
 # boxplot by categories
