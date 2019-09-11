@@ -846,7 +846,6 @@ X_test['MoSold_sin'] = MoSold_sin
 
 y_train = np.log(y_train)
 test_y = np.log(test_y)
-summary_stats_numeric(test_y, test_y)
 
 # 3.1 Linear Regression with multiple variables
 linear_reg = LinearRegression()
@@ -906,38 +905,17 @@ print('After yearBuild groupping LinearRegression score: 591093739.0732 (3635268
 
 # Error Analysis on the test data
 # analysis of residuals: OVERFITTING
-residuals = test_y - test_prediction
-sns.residplot(test_prediction, residuals, lowess=True,
-              line_kws={'color': 'red'})
-plt.title('Fitted vs Residuals')
-plt.xlabel('Fitted values (TestPrediction)')
-plt.ylabel('Residuals')
-plt.show()
+def residuals_vs_fitted(observed_y, fitted_y):
+    residuals = observed_y - fitted_y
+    sns.residplot(fitted_y, residuals, lowess=True,
+               line_kws={'color': 'red'})
+    plt.title('Fitted vs Residuals')
+    plt.xlabel('Fitted values (TestPrediction)')
+    plt.ylabel('Residuals')
+    plt.show()
+
 # We have large leverage observations (creates clusters).
-# Adjusting for collinearity fixed the clusters
-# After adjusting for GarageCars and TotalSF there is
-# some evidence of a slight non-linear relationship in the data
-
-# Extremely small residuals
-# 1370, 1011
-# Extremely high
-# 398, 1270, 762, 326
-#foo = test_X.drop([398, 1270, 762, 326, 1370, 1011])
-#bar = residuals.drop([398, 1270, 762, 326, 1370, 1011])
-# Investigate around the correlation of error terms
-#sns.residplot(foo['GarageYrBlt'], bar)
-# plt.show()
-
-# LEVERAGE STATISTIC
-h = 1/len(test_y) + \
-    (np.power(test_X['LotFrontage'] - test_X['LotFrontage'].mean(), 2) /
-     sum(np.power(test_X['LotFrontage'] - test_X['LotFrontage'].mean(), 2)))
-# 1298, 934
-
-plt.scatter(h, residuals)
-plt.xlabel('Laverage')
-plt.ylabel('Residuals')
-plt.show()
+# implement models robust to outliers and leverage points
 
 # 3.2 Lasso Regression
 # Find the optimal alpha
@@ -955,15 +933,19 @@ for elem in alpha_list:
     score.append(cv_rmse(lasso).mean())
 
 # Regularization and Bias/Variance graph
-plt.plot(alpha_list, score)
-plt.title('Regularization Bias/Variance')
-plt.xlabel('alpha')
-plt.ylabel('Cross validation error')
-plt.scatter(alpha_list[np.argmin(score)],
-            score[np.argmin(score)], c='r')
-plt.text(alpha_list[np.argmin(score)],
-         score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
-plt.show()
+
+def tuning_parameter(alpha, score):
+    plt.plot(alpha, score)
+    plt.title('Regularization Bias/Variance')
+    plt.xlabel('alpha')
+    plt.ylabel('Cross validation error')
+    plt.scatter(alpha[np.argmin(score)],
+                score[np.argmin(score)], c='r')
+    plt.text(alpha[np.argmin(score)],
+             score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
+    plt.show()
+
+#tuning_parameter(alpha_list, score)
 
 # Select the best combo that produces the lowest error on cv
 lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
@@ -981,29 +963,20 @@ rmse_test = np.sqrt(
     np.sum(np.power(test_y-lasso_test_prediction, 2))/len(test_y))
 print('rmse test with lasso regression: ', rmse_test)
 
+#residuals_vs_fitted(test_y, lasso_test_prediction)
+# sign of slight non-linearity and leverage/ouliers 
+
 # 3.3 Rigid Regression
 # Find the optimal alpha
 alpha_list = [0.6 , 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7 ,
        0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8 ]
-
-# Narrow step between min points
-#np.arange(0.0003125, 0.000625, 0.0001)
 
 score = []
 for elem in alpha_list:
     ridge = Ridge(alpha=elem, random_state=56)
     score.append(cv_rmse(ridge).mean())
 
-# Regularization and Bias/Variance graph
-plt.plot(alpha_list, score)
-plt.title('Regularization Bias/Variance')
-plt.xlabel('alpha')
-plt.ylabel('Cross validation error')
-plt.scatter(alpha_list[np.argmin(score)],
-            score[np.argmin(score)], c='r')
-plt.text(alpha_list[np.argmin(score)],
-         score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
-plt.show()
+#tuning_parameter(alpha_list, score)
 
 # Select the best combo that produces the lowest error on cv
 ridge = Ridge(alpha_list[np.argmin(score)], random_state=756)
@@ -1018,3 +991,11 @@ ridge_test_prediction = ridge_fit.predict(test_X)
 rmse_test = np.sqrt(
     np.sum(np.power(test_y-ridge_test_prediction, 2))/len(test_y))
 print('rmse test with ridge regression: ', rmse_test)
+
+residuals_vs_fitted(test_y, ridge_test_prediction)
+# Let's relax the linearity assumption 
+
+
+## TO DO
+# create git brunch wiht the different feature engineer and transformation 
+# in order to select the best performer models.
