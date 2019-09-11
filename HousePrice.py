@@ -8,7 +8,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer, PowerTransformer
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
-from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.linear_model import LinearRegression, Lasso, Ridge
 
 # 0. IMPORT DATASETS
 
@@ -848,7 +848,7 @@ y_train = np.log(y_train)
 test_y = np.log(test_y)
 summary_stats_numeric(test_y, test_y)
 
-# Linear Regression with multiple variables
+# 3.1 Linear Regression with multiple variables
 linear_reg = LinearRegression()
 
 # 4. PREDICT AND ACCURACIES
@@ -905,7 +905,7 @@ print('Box-Cox transformation LinearRegression score: 1299196641.8624 (152303243
 print('After yearBuild groupping LinearRegression score: 591093739.0732 (363526804.1697)')
 
 # Error Analysis on the test data
-# analysis of residuals
+# analysis of residuals: OVERFITTING
 residuals = test_y - test_prediction
 sns.residplot(test_prediction, residuals, lowess=True,
               line_kws={'color': 'red'})
@@ -939,6 +939,7 @@ plt.xlabel('Laverage')
 plt.ylabel('Residuals')
 plt.show()
 
+# 3.2 Lasso Regression
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
               0.0005125, 0.0006125, 0.000625, 0.00125]
@@ -967,8 +968,53 @@ plt.show()
 # Select the best combo that produces the lowest error on cv
 lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
 score = cv_rmse(lasso)
-print("\nLasso score: {:.4f} ({:.4f})\n".format(
+print("\nLasso cv score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 print('BsmtSF Lasso score: 0.1133 (0.0125)')
 print('yearBuilt groupping Lasso score: 0.1147 (0.0127)')
 
+# Check relevant Lasso coefs. 
+lasso_fit = lasso.fit(X_train, y_train)
+lasso_test_prediction = lasso_fit.predict(test_X)
+
+rmse_test = np.sqrt(
+    np.sum(np.power(test_y-lasso_test_prediction, 2))/len(test_y))
+print('rmse test with lasso regression: ', rmse_test)
+
+# 3.3 Rigid Regression
+# Find the optimal alpha
+alpha_list = [0.6 , 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7 ,
+       0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8 ]
+
+# Narrow step between min points
+#np.arange(0.0003125, 0.000625, 0.0001)
+
+score = []
+for elem in alpha_list:
+    ridge = Ridge(alpha=elem, random_state=56)
+    score.append(cv_rmse(ridge).mean())
+
+# Regularization and Bias/Variance graph
+plt.plot(alpha_list, score)
+plt.title('Regularization Bias/Variance')
+plt.xlabel('alpha')
+plt.ylabel('Cross validation error')
+plt.scatter(alpha_list[np.argmin(score)],
+            score[np.argmin(score)], c='r')
+plt.text(alpha_list[np.argmin(score)],
+         score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
+plt.show()
+
+# Select the best combo that produces the lowest error on cv
+ridge = Ridge(alpha_list[np.argmin(score)], random_state=756)
+score = cv_rmse(ridge)
+print("\n Ridge cv score: {:.4f} ({:.4f})\n".format(
+    score.mean(), score.std()))
+
+# Check relevant Lasso coefs. 
+ridge_fit = ridge.fit(X_train, y_train)
+ridge_test_prediction = ridge_fit.predict(test_X)
+
+rmse_test = np.sqrt(
+    np.sum(np.power(test_y-ridge_test_prediction, 2))/len(test_y))
+print('rmse test with ridge regression: ', rmse_test)
