@@ -494,7 +494,7 @@ cat_var = cat_var.drop(['GarageYrBlt'])
 # hue to check against categorical variables
 # (avoid to delete important information)
 #sns.pairplot(X_train[num_var].dropna(), height=1.3)
-# plt.show()
+#plt.show()
 
 # (laverage stats with multiple predictors)
 # for i in num_var:
@@ -503,11 +503,11 @@ cat_var = cat_var.drop(['GarageYrBlt'])
 
 #summary_stats_numeric(X_train['BsmtFinSF'], y_train)
 drop_rows = np.concatenate((
-    list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]),
-    list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]),
+    list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]), # (already in the list)
+    list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]), # (already in the list)
     list(X_train['LotFrontage'].index[X_train['LotFrontage'] > 300]),
     list(X_train['LotArea'].index[X_train['LotArea'] > 100000]),
-    list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000])))
+    list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000]))) # (already in the list)
 
 
 def unique(list_value):
@@ -524,6 +524,11 @@ drop_rows = unique(drop_rows)
 
 X_train = X_train.drop(drop_rows)
 y_train = y_train.drop(drop_rows)
+
+#sns.pairplot(X_train[num_var].dropna(), height=1.3)
+#plt.show()
+#for i in num_var:
+    #summary_stats_numeric(X_train[i], y_train)
 
 #summary_stats_numeric(X_train['GrLivArea'], y_train)
 
@@ -553,7 +558,8 @@ X_test[num_var] = imp_num_miss.transform(X_test[num_var])
 
 #summary_stats_numeric(X_train['LotFrontage'], y_train)
 
-# BOX-COX Transformation
+## BOX-COX Transformation
+# Let's relax the linearity assumption 
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.power_transform.html
 # for negative values
@@ -993,9 +999,11 @@ rmse_test = np.sqrt(
 print('rmse test with ridge regression: ', rmse_test)
 
 residuals_vs_fitted(test_y, ridge_test_prediction)
-# Let's relax the linearity assumption 
+
+
+
 
 
 ## TO DO
-# create git brunch wiht the different feature engineer and transformation 
+# create git branch wiht the different feature engineer and transformations
 # in order to select the best performer models.
