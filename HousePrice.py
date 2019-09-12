@@ -9,6 +9,7 @@ from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer, Powe
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
+from sklearn.kernel_ridge import KernelRidge
 
 # 0. IMPORT DATASETS
 
@@ -877,14 +878,14 @@ def cv_rmse(model):
     return rmse
 
 
-print('============= LINEAR REGRESSION =============')
+print('\n============= LINEAR REGRESSION =============\n')
 # Check results on the training set
 reg = LinearRegression().fit(X_train, y_train)
 theta = reg.coef_
 train_prediction = np.dot(X_train, theta) + reg.intercept_
 rmse_train = np.sqrt(
     np.sum(np.power(y_train-train_prediction, 2))/len(y_train))
-print('\nrmse_train for linear regression: ', rmse_train)
+print('rmse_train for linear regression: ', rmse_train)
 
 # After droping leverege points in LotFrontage rmse remain the same 0.0938
 
@@ -893,7 +894,7 @@ test_prediction = pd.Series(np.dot(test_X, theta) + reg.intercept_)
 test_prediction.index = test_X.index
 
 rmse_test = np.sqrt(np.sum(np.power(test_y-test_prediction, 2))/len(test_y))
-print('\nrmse_test for linear regression: ', rmse_test)
+print('rmse_test for linear regression: ', rmse_test)
 # 204505871.74563393
 # after 1839666592.5665817
 # after adjusting for collinearity (Garage and TotSF) 990527540.2560297
@@ -903,7 +904,7 @@ print('\nrmse_test for linear regression: ', rmse_test)
 
 # Check results on the cross validation
 score = cv_rmse(linear_reg)
-print("\nLinearRegression cv score: {:.4f} ({:.4f})\n".format(
+print("LinearRegression cv score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 
 # Error Analysis on the test data
@@ -925,7 +926,7 @@ def residuals_vs_fitted(observed_y, fitted_y):
 # 3.2 Lasso Regression
 
 
-print('============= LASSO REGRESSION =============')
+print('\n============= LASSO REGRESSION =============\n')
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
               0.0005125, 0.0006125, 0.000625, 0.00125]
@@ -962,7 +963,7 @@ tuning_parameter(alpha_list, score)
 # Select the best combo that produces the lowest error on cv
 lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
 score = cv_rmse(lasso)
-print("\nLasso cv score: {:.4f} ({:.4f})".format(
+print("Lasso cv score: {:.4f} ({:.4f})".format(
     score.mean(), score.std()))
 
 # Check relevant Lasso coefs.
@@ -971,13 +972,13 @@ lasso_test_prediction = lasso_fit.predict(test_X)
 
 rmse_test = np.sqrt(
     np.sum(np.power(test_y-lasso_test_prediction, 2))/len(test_y))
-print('\nrmse_test with lasso regression: ', rmse_test)
+print('rmse_test with lasso regression: ', rmse_test)
 
 # residuals_vs_fitted(test_y, lasso_test_prediction)
 # sign of slight non-linearity and leverage/ouliers
 
 # 3.3 Rigid Regression
-print('============= RIGID REGRESSION =============')
+print('\n============= RIGID REGRESSION =============\n')
 # Find the optimal alpha
 alpha_list = [0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7,
               0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8]
@@ -992,7 +993,7 @@ tuning_parameter(alpha_list, score)
 # Select the best combo that produces the lowest error on cv
 ridge = Ridge(alpha_list[np.argmin(score)], random_state=756)
 score = cv_rmse(ridge)
-print("\nRidge cv score: {:.4f} ({:.4f})".format(
+print("Ridge cv score: {:.4f} ({:.4f})".format(
     score.mean(), score.std()))
 
 # Check relevant Lasso coefs.
@@ -1001,12 +1002,12 @@ ridge_test_prediction = ridge_fit.predict(test_X)
 
 rmse_test = np.sqrt(
     np.sum(np.power(test_y-ridge_test_prediction, 2))/len(test_y))
-print('\nrmse_test with ridge regression: ', rmse_test)
+print('rmse_test with ridge regression: ', rmse_test)
 
 # residuals_vs_fitted(test_y, ridge_test_prediction)
 
 # 3.3 Elastic-Net
-print('============= ELASTIC NET REGRESSION =============')
+print('\n============= ELASTIC NET REGRESSION =============\n')
 # It is a compromise between Lasso and Ridge
 # it handle better correlated significant variables
 
@@ -1031,7 +1032,7 @@ ENet = ElasticNet(alpha=alpha_list[np.argmin(score)-len(l1)-1],
                   random_state=4, max_iter=2000)
 
 score = cv_rmse(ENet)
-print("\n Elastic Net cv score: {:.4f} ({:.4f})".format(
+print("Elastic Net cv score: {:.4f} ({:.4f})".format(
     score.mean(), score.std()))
 
 # Check relevant Lasso coefs.
@@ -1040,7 +1041,35 @@ ENet_test_prediction = ENet_fit.predict(test_X)
 
 rmse_test = np.sqrt(
     np.sum(np.power(test_y-ENet_test_prediction, 2))/len(test_y))
-print('\nrmse_test with Elastic Net: ', rmse_test)
+print('rmse_test with Elastic Net: ', rmse_test)
+
+# 3.4 Kernel Methods
+print('\n============= KERNEL RIDGE REGRESSION =============\n')
+# learns a non-linear function in the space induced by respective kernel and the data
+
+alpha_list = [0.01, 0.02, 0.03, 0.04, 0.05, 0.07, 0.08, 0.09, 0.1, 0.5]
+
+score = []
+for elem in alpha_list:
+    KRR = KernelRidge(alpha=elem, degree=2, kernel='polynomial',
+                      coef0=ridge.intercept_)
+    score.append(cv_rmse(KRR).mean())
+
+tuning_parameter(alpha_list, score)
+
+# Select the best combo that produces the lowest error on cv
+KRR = KernelRidge(alpha_list[np.argmin(score)], degree=2, kernel='polynomial',
+                  coef0=ridge.intercept_)
+score = cv_rmse(KRR)
+print("Kernel Ridge Regression cv score: {:.4f} ({:.4f})".format(
+    score.mean(), score.std()))
+
+KRR_fit = KRR.fit(X_train, y_train)
+KRR_test_prediction = KRR_fit.predict(test_X)
+
+rmse_test = np.sqrt(
+    np.sum(np.power(test_y-KRR_test_prediction, 2))/len(test_y))
+print('rmse_test with kernel ridge regression: ', rmse_test)
 
 
 # TO DO
