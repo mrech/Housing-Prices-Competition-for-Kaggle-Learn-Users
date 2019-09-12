@@ -9,6 +9,7 @@ from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, Binarizer, Powe
 from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
+from sklearn.ensemble import RandomForestRegressor
 
 # 0. IMPORT DATASETS
 
@@ -44,7 +45,7 @@ X_train.dtypes
 def summary_stats_category(X):
     '''
     Plot summary stats together with univariate distribution.
-    Input: categorical variable 
+    Input: categorical variable
     Output: plot and summary stats
     '''
 
@@ -92,7 +93,7 @@ def summary_stats_numeric(X, y):
 def bivariate_distr_categorical(X, y):
     '''
     Plot relationship beween the categorical variable and the target variable
-    Input: categorical variable 
+    Input: categorical variable
     '''
     sns.boxplot(X, y)
     plt.show()
@@ -247,7 +248,7 @@ for i in ord_list4:
     X_train[i] = X_train[i].astype(order)
 
 # Visual inspection
-#for i in ord_list4:
+# for i in ord_list4:
 #   summary_stats_category(X_test[i])
 
 # 2.2. imput missing
@@ -325,7 +326,7 @@ test_X['BsmtFinSF'] = test_X['BsmtFinSF1'] + \
 X_test['BsmtFinSF'] = X_test['BsmtFinSF1'] + \
     X_test['BsmtFinSF2'] - X_test['BsmtUnfSF']
 
-#sns.jointplot(X_train['BsmtUnfSF'], X_train['BsmtSF'])
+# sns.jointplot(X_train['BsmtUnfSF'], X_train['BsmtSF'])
 X_train = X_train.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
 test_X = test_X.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
 X_test = X_test.drop(['BsmtFinSF1', 'BsmtFinSF2', 'BsmtUnfSF'], axis=1)
@@ -344,7 +345,7 @@ test_X['Bathroom'] = test_X['BsmtFullBath'] + test_X['FullBath'] + \
 X_test['Bathroom'] = X_test['BsmtFullBath'] + X_test['FullBath'] + \
     0.5*X_test['BsmtHalfBath'] + 0.5*X_test['HalfBath']
 
-#summary_stats_numeric(X_train['Bathroom'], y_train)
+# summary_stats_numeric(X_train['Bathroom'], y_train)
 
 X_train = X_train.drop(
     ['BsmtFullBath', 'FullBath', 'BsmtHalfBath', 'HalfBath'], axis=1)
@@ -380,11 +381,11 @@ num_var = num_var.insert(len(num_var), 'TotPorchSF')
 
 # summary stats, categorical, numerical, and bivariate
 # Transform pool in categorical variable (too many zeros)
-#summary_stats_numeric(X_train['PoolArea'], y_train)
+# summary_stats_numeric(X_train['PoolArea'], y_train)
 # summary_stats_category(X_train['PoolQC'])
-#bivariate_distr_categorical(X_train['PoolQC'], y_train)
+# bivariate_distr_categorical(X_train['PoolQC'], y_train)
 X_train['WithPool'] = X_train['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
-#bivariate_distr_categorical(X_train['WithPool'], y_train)
+# bivariate_distr_categorical(X_train['WithPool'], y_train)
 test_X['WithPool'] = test_X['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
 X_test['WithPool'] = X_test['PoolArea'].apply(lambda x: 1 if x > 0 else 0)
 
@@ -399,7 +400,7 @@ bin_list = ['WithPool']
 
 X_train['WithFireplace'] = X_train['Fireplaces'].apply(
     lambda x: 1 if x > 0 else 0)
-#bivariate_distr_categorical(X_train['Fireplaces'], y_train)
+# bivariate_distr_categorical(X_train['Fireplaces'], y_train)
 test_X['WithFireplace'] = test_X['Fireplaces'].apply(
     lambda x: 1 if x > 0 else 0)
 X_test['WithFireplace'] = X_test['Fireplaces'].apply(
@@ -431,15 +432,15 @@ num_var = num_var.drop(['LowQualFinSF', 'MiscVal'])
 
 
 # check categorical variables for futures engineering!
-#foo = pd.DataFrame(y_train)
-#foo.index = X_train.index
-#foo = pd.concat([X_train, y_train], axis=1)
-#sns.catplot('Alley', 'SalePrice', hue='Street', data=foo)
+# foo = pd.DataFrame(y_train)
+# foo.index = X_train.index
+# foo = pd.concat([X_train, y_train], axis=1)
+# sns.catplot('Alley', 'SalePrice', hue='Street', data=foo)
 # plt.show()
 
 # drop utilities all are AllPub (no add info)
 # summary_stats_category(X_train['Street'])
-#bivariate_distr_categorical(X_train['Street'], y_train)
+# bivariate_distr_categorical(X_train['Street'], y_train)
 X_train = X_train.drop(['Utilities'], axis=1)
 test_X = test_X.drop(['Utilities'], axis=1)
 X_test = X_test.drop(['Utilities'], axis=1)
@@ -448,40 +449,40 @@ cat_list.remove('Utilities')
 cat_var = cat_var.drop(['Utilities'])
 
 # check for overlap of info within categorical variables
-#sns.catplot('SaleCondition', 'SalePrice', hue='SaleType', data=foo)
+# sns.catplot('SaleCondition', 'SalePrice', hue='SaleType', data=foo)
 # plt.show()
 
 # Adjust yearbuild, year remodelled, garageyear >>> group them meaningful way
 # timeserie analysis
-#sns.swarmplot(pd.cut(X_train['YearRemodAdd'], 5), y_train)
+# sns.swarmplot(pd.cut(X_train['YearRemodAdd'], 5), y_train)
 
-#bivariate_distr_categorical(pd.cut(X_train['YearRemodAdd'], 5), y_train)
-#plt.show()
+# bivariate_distr_categorical(pd.cut(X_train['YearRemodAdd'], 5), y_train)
+# plt.show()
 
-#X_train['YearBuilt'], fitbins = pd.cut(X_train['YearBuilt'], 3,
-                                    #labels=['Late800First900', 'Mind900', 'Late900First000'], retbins=True)
+# X_train['YearBuilt'], fitbins = pd.cut(X_train['YearBuilt'], 3,
+                                    # labels=['Late800First900', 'Mind900', 'Late900First000'], retbins=True)
 
-#X_test['YearBuilt'] = pd.cut(X_test['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
-#test_X['YearBuilt'] = pd.cut(test_X['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
+# X_test['YearBuilt'] = pd.cut(X_test['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
+# test_X['YearBuilt'] = pd.cut(test_X['YearBuilt'], bins=fitbins, labels=['Late800First900', 'Mind900', 'Late900First000'])
 
-#cat_list.append('YearBuilt')
-#date_list.remove('YearBuilt')
+# cat_list.append('YearBuilt')
+# date_list.remove('YearBuilt')
 
-# YearRemodAdd' 
+# YearRemodAdd'
 
-#X_train['YearRemodAdd'], fitbins = pd.cut(X_train['YearRemodAdd'], 5,
+# X_train['YearRemodAdd'], fitbins = pd.cut(X_train['YearRemodAdd'], 5,
 #                                    labels=['49-62', '62-74', '74-86', '86-98',  '98-10'], retbins=True)
 
-#X_test['YearRemodAdd'] = pd.cut(X_test['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
-#test_X['YearRemodAdd'] = pd.cut(test_X['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
+# X_test['YearRemodAdd'] = pd.cut(X_test['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
+# test_X['YearRemodAdd'] = pd.cut(test_X['YearRemodAdd'], bins=fitbins, labels=['49-62', '62-74', '74-86', '86-98',  '98-10'])
 
-#cat_list.append('YearRemodAdd')
-#date_list.remove('YearRemodAdd')
+# cat_list.append('YearRemodAdd')
+# date_list.remove('YearRemodAdd')
 
 #  GarageYrBlt'
-X_train = X_train.drop(['GarageYrBlt'], axis = 1)
-X_test = X_test.drop(['GarageYrBlt'], axis = 1)
-test_X = test_X.drop(['GarageYrBlt'], axis = 1)
+X_train = X_train.drop(['GarageYrBlt'], axis=1)
+X_test = X_test.drop(['GarageYrBlt'], axis=1)
+test_X = test_X.drop(['GarageYrBlt'], axis=1)
 
 date_list.remove('GarageYrBlt')
 cat_var = cat_var.drop(['GarageYrBlt'])
@@ -493,21 +494,23 @@ cat_var = cat_var.drop(['GarageYrBlt'])
 # Find outliers/leverage points base on observation
 # hue to check against categorical variables
 # (avoid to delete important information)
-#sns.pairplot(X_train[num_var].dropna(), height=1.3)
-#plt.show()
+# sns.pairplot(X_train[num_var].dropna(), height=1.3)
+# plt.show()
 
 # (laverage stats with multiple predictors)
 # for i in num_var:
 #   sns.regplot(X_train[i], y_train)
 #   plt.show()
 
-#summary_stats_numeric(X_train['BsmtFinSF'], y_train)
+# summary_stats_numeric(X_train['BsmtFinSF'], y_train)
 drop_rows = np.concatenate((
-    list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]), # (already in the list)
-    list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]), # (already in the list)
+    # (already in the list)
+    list(X_train['TotalSF'].index[X_train['TotalSF'] > 6500]),
+    # (already in the list)
+    list(X_train['BsmtFinSF'].index[X_train['BsmtFinSF'] > 4000]),
     list(X_train['LotFrontage'].index[X_train['LotFrontage'] > 300]),
     list(X_train['LotArea'].index[X_train['LotArea'] > 100000]),
-    list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000]))) # (already in the list)
+    list(X_train['GrLivArea'].index[X_train['GrLivArea'] > 4000])))  # (already in the list)
 
 
 def unique(list_value):
@@ -525,12 +528,12 @@ drop_rows = unique(drop_rows)
 X_train = X_train.drop(drop_rows)
 y_train = y_train.drop(drop_rows)
 
-#sns.pairplot(X_train[num_var].dropna(), height=1.3)
-#plt.show()
-#for i in num_var:
-    #summary_stats_numeric(X_train[i], y_train)
+# sns.pairplot(X_train[num_var].dropna(), height=1.3)
+# plt.show()
+# for i in num_var:
+    # summary_stats_numeric(X_train[i], y_train)
 
-#summary_stats_numeric(X_train['GrLivArea'], y_train)
+# summary_stats_numeric(X_train['GrLivArea'], y_train)
 
 # Input top frequency category checking for price range
 # NOTE: Imputation of missing needs to be the same in the test set
@@ -556,10 +559,10 @@ test_X[num_var] = imp_num_miss.transform(test_X[num_var])
 # Impute the missing to the test set
 X_test[num_var] = imp_num_miss.transform(X_test[num_var])
 
-#summary_stats_numeric(X_train['LotFrontage'], y_train)
+# summary_stats_numeric(X_train['LotFrontage'], y_train)
 
-## BOX-COX Transformation
-# Let's relax the linearity assumption 
+# BOX-COX Transformation
+# Let's relax the linearity assumption
 # https://stats.stackexchange.com/questions/18844/when-and-why-should-you-take-the-log-of-a-distribution-of-numbers
 # https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.power_transform.html
 # for negative values
@@ -721,8 +724,8 @@ ord_enc_4 = ord_enc_4.fit(X_train[ord_list4])
 X_train[ord_list4] = ord_enc_4.transform(X_train[ord_list4])
 test_X[ord_list4] = ord_enc_4.transform(test_X[ord_list4])
 
-# Encode the features on the test set 
-#X_test.Functional.unique()
+# Encode the features on the test set
+# X_test.Functional.unique()
 X_test[ord_list4] = ord_enc_4.transform(X_test[ord_list4])
 
 cat_enc = OneHotEncoder(sparse=False, handle_unknown='ignore')
@@ -748,9 +751,9 @@ X_test = X_test.drop(cat_list, axis=1)
 X_test = pd.concat([X_test, cat_test], axis=1)
 
 # Binomial Encoding already done with if else statement
-#bin_enc = Binarizer()
-#bin_enc = bin_enc.fit(X_train[bin_list])
-#bin_var = pd.DataFrame(bin_enc.transform(X_train[bin_list]))
+# bin_enc = Binarizer()
+# bin_enc = bin_enc.fit(X_train[bin_list])
+# bin_var = pd.DataFrame(bin_enc.transform(X_train[bin_list]))
 
 # 2.4 Features Standardization
 # https://scikit-learn.org/stable/modules/preprocessing.html#preprocessing-scaler
@@ -806,15 +809,15 @@ X_test[yr_list] = yr_stand_transf.transform(X_test[yr_list])
 # Maintaining the Cyclic Representations of Month Sold
 # https://datascience.stackexchange.com/a/24003
 
-## Explanation / Intuition
-#foo = np.array([1,2,3,4,5,6,7,8,9,10,11,12])
+# Explanation / Intuition
+# foo = np.array([1,2,3,4,5,6,7,8,9,10,11,12])
 # Circle Circumference = (2*pi*r) devide by 12 periods
 # for each period we calculate sin and cos
 # With this transformation any cyclical feature will be doubled.
-#bar1 = np.cos((foo-1) * (2*np.pi/12))
-#bar2 = np.sin((foo-1) * (2*np.pi/12))
-#fig, ax = plt.subplots()
-#plt.scatter(bar1, bar2)
+# bar1 = np.cos((foo-1) * (2*np.pi/12))
+# bar2 = np.sin((foo-1) * (2*np.pi/12))
+# fig, ax = plt.subplots()
+# plt.scatter(bar1, bar2)
 # for i, txt in enumerate(foo-1):
 #    ax.annotate(txt, (bar1[i], bar2[i]))
 # plt.show()
@@ -822,8 +825,8 @@ X_test[yr_list] = yr_stand_transf.transform(X_test[yr_list])
 MoSold_cos = np.cos((X_train[date_list[-1]]-1) * (2*np.pi/12))
 MoSold_sin = np.sin((X_train[date_list[-1]]-1) * (2*np.pi/12))
 
-#fig, ax = plt.subplots()
-#plt.scatter(MoSold_cos, MoSold_sin)
+# fig, ax = plt.subplots()
+# plt.scatter(MoSold_cos, MoSold_sin)
 # for i, txt in enumerate((X_train[date_list[-1]]-1)):
 #    ax.annotate(txt, (MoSold_cos[i], MoSold_sin[i]))
 # plt.show()
@@ -911,6 +914,8 @@ print('After yearBuild groupping LinearRegression score: 591093739.0732 (3635268
 
 # Error Analysis on the test data
 # analysis of residuals: OVERFITTING
+
+
 def residuals_vs_fitted(observed_y, fitted_y):
     residuals = observed_y - fitted_y
     sns.residplot(fitted_y, residuals, lowess=True,
@@ -924,12 +929,14 @@ def residuals_vs_fitted(observed_y, fitted_y):
 # implement models robust to outliers and leverage points
 
 # 3.2 Lasso Regression
+
+
 # Find the optimal alpha
 alpha_list = [0.00015625, 0.0003125, 0.0004125,
               0.0005125, 0.0006125, 0.000625, 0.00125]
 
 # Narrow step between min points
-#np.arange(0.0003125, 0.000625, 0.0001)
+# np.arange(0.0003125, 0.000625, 0.0001)
 
 # Create a set of models with different degrees or any other variants
 
@@ -939,6 +946,7 @@ for elem in alpha_list:
     score.append(cv_rmse(lasso).mean())
 
 # Regularization and Bias/Variance graph
+
 
 def tuning_parameter(alpha, score):
     plt.plot(alpha, score)
@@ -951,7 +959,8 @@ def tuning_parameter(alpha, score):
              score[np.argmin(score)], s='Min: {}'.format(alpha_list[np.argmin(score)]))
     plt.show()
 
-#tuning_parameter(alpha_list, score)
+# tuning_parameter(alpha_list, score)
+
 
 # Select the best combo that produces the lowest error on cv
 lasso = Lasso(alpha_list[np.argmin(score)], random_state=756)
@@ -961,7 +970,7 @@ print("\nLasso cv score: {:.4f} ({:.4f})\n".format(
 print('BsmtSF Lasso score: 0.1133 (0.0125)')
 print('yearBuilt groupping Lasso score: 0.1147 (0.0127)')
 
-# Check relevant Lasso coefs. 
+# Check relevant Lasso coefs.
 lasso_fit = lasso.fit(X_train, y_train)
 lasso_test_prediction = lasso_fit.predict(test_X)
 
@@ -969,20 +978,20 @@ rmse_test = np.sqrt(
     np.sum(np.power(test_y-lasso_test_prediction, 2))/len(test_y))
 print('rmse test with lasso regression: ', rmse_test)
 
-#residuals_vs_fitted(test_y, lasso_test_prediction)
-# sign of slight non-linearity and leverage/ouliers 
+# residuals_vs_fitted(test_y, lasso_test_prediction)
+# sign of slight non-linearity and leverage/ouliers
 
 # 3.3 Rigid Regression
 # Find the optimal alpha
-alpha_list = [0.6 , 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7 ,
-       0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8 ]
+alpha_list = [0.6, 0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7,
+       0.71, 0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8]
 
 score = []
 for elem in alpha_list:
     ridge = Ridge(alpha=elem, random_state=56)
     score.append(cv_rmse(ridge).mean())
 
-#tuning_parameter(alpha_list, score)
+# tuning_parameter(alpha_list, score)
 
 # Select the best combo that produces the lowest error on cv
 ridge = Ridge(alpha_list[np.argmin(score)], random_state=756)
@@ -990,7 +999,7 @@ score = cv_rmse(ridge)
 print("\n Ridge cv score: {:.4f} ({:.4f})\n".format(
     score.mean(), score.std()))
 
-# Check relevant Lasso coefs. 
+# Check relevant Lasso coefs.
 ridge_fit = ridge.fit(X_train, y_train)
 ridge_test_prediction = ridge_fit.predict(test_X)
 
@@ -998,12 +1007,40 @@ rmse_test = np.sqrt(
     np.sum(np.power(test_y-ridge_test_prediction, 2))/len(test_y))
 print('rmse test with ridge regression: ', rmse_test)
 
-residuals_vs_fitted(test_y, ridge_test_prediction)
+# residuals_vs_fitted(test_y, ridge_test_prediction)
 
+# 3.3 Baggning Trees
+# Runing parameter is number of trees
 
+B = [50, 5000]
+OOB_Bagging = []
 
+for i in B:
+    BaggingTree = RandomForestRegressor(n_estimators=i, max_features = 'sqrt',
+                                       oob_score=True, random_state=23, verbose=1, 
+                                       n_jobs = -1)
 
+    BaggingTree.fit(X_train, y_train)
 
-## TO DO
+    OOB_Bagging.append(BaggingTree.oob_score_)
+
+# Number of trees tuning parameters
+plt.figure()
+plt.title("Error vs Number of Trees")
+plt.plot(B, OOB_Bagging)
+plt.show()
+
+# Model interpreatability: variable importance
+importances = BaggingTree.feature_importances_
+std = np.std([tree.feature_importances_ for tree in BaggingTree.estimators_],
+    axis=0)
+
+indices = np.argsort(importances)[::-1]
+
+for f in range(X_train.shape[1]):
+    print('%d. feature %s (%f)' % (f + 1, X_train.columns[indices[f]], 
+          importances[indices[f]]))
+
+# TO DO
 # create git branch wiht the different feature engineer and transformations
 # in order to select the best performer models.
