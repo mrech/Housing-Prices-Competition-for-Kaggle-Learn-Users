@@ -11,6 +11,8 @@ from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.ensemble import GradientBoostingRegressor
+import xgboost as xgb
+from sklearn.model_selection import GridSearchCV
 
 # 0. IMPORT DATASETS
 
@@ -958,7 +960,7 @@ def tuning_parameter(alpha, score):
     plt.show()
 
 
-tuning_parameter(alpha_list, score)
+#tuning_parameter(alpha_list, score)
 
 
 # Select the best combo that produces the lowest error on cv
@@ -989,7 +991,7 @@ for elem in alpha_list:
     ridge = Ridge(alpha=elem, random_state=56)
     score.append(cv_rmse(ridge).mean())
 
-tuning_parameter(alpha_list, score)
+#tuning_parameter(alpha_list, score)
 
 # Select the best combo that produces the lowest error on cv
 ridge = Ridge(alpha_list[np.argmin(score)], random_state=756)
@@ -1025,7 +1027,7 @@ for a in alpha_list:
         ENet = ElasticNet(alpha=a, l1_ratio=l, random_state=4, max_iter=2000)
         score.append(cv_rmse(ENet).mean())
 
-tuning_parameter(params_comb, score)
+#tuning_parameter(params_comb, score)
 
 # Select the best combo that produces the lowest error on cv
 ENet = ElasticNet(alpha=alpha_list[np.argmin(score)-len(l1)-1],
@@ -1056,7 +1058,7 @@ for elem in alpha_list:
                       coef0=ridge.intercept_)
     score.append(cv_rmse(KRR).mean())
 
-tuning_parameter(alpha_list, score)
+#tuning_parameter(alpha_list, score)
 
 # Select the best combo that produces the lowest error on cv
 KRR = KernelRidge(alpha_list[np.argmin(score)], degree=2, kernel='polynomial',
@@ -1090,7 +1092,57 @@ rmse_test = np.sqrt(
     np.sum(np.power(test_y-GBR_test_prediction, 2))/len(test_y))
 print('rmse_test with gradient boosting regression: ', rmse_test)
 
+# 3.6 Extreme Gradient Boosting
+print('\n============= Extreme Gradient Boosting Regressor =============\n')
+
+# Define a function for creating XGBoost models and check their performance with cv
+
+def modelfit(alg, X, y, test_X, test_y, useTrainCV=True, cv_folds=5, early_stopping_rounds=50):
+
+    if useTrainCV:
+        xgb_param = alg.get_xgb_params()
+        xgtrain = xgb.DMatrix(X.values, label=y.values)
+        cvresult = xgb.cv(xgb_param, xgtrain, num_boost_round=alg.get_params()['n_estimators'],
+                          nfold=cv_folds, metrics='rmse', early_stopping_rounds=early_stopping_rounds)
+        alg.set_params(n_estimators=cvresult.shape[0])
+
+    # Fit the algorithm on the data
+    alg.fit(X, y, eval_metric='rmse')
+
+    # Predict training set:
+    predictions = alg.predict(test_X)
+
+    # Print model report:
+    rmse_test = np.sqrt(np.sum(np.power(test_y-predictions, 2))/len(test_y))
+    print('MODEL: ',  alg, '\n\nRMSE_TEST: ', rmse_test)
+
+    feat_imp = pd.Series(alg.get_booster().get_fscore()
+                         ).sort_values(ascending=False)
+    fig, ax = plt.subplots()
+    feat_imp.plot(kind='bar', title='Feature Importances')
+    plt.ylabel('Feature Importance Score')
+    ax.tick_params(axis="x", labelsize=7)
+    
+
+# set some initial values of other parameters.
+
+xgb1 = xgb.XGBRegressor(objective ='reg:squarederror', colsample_bytree=0.8, gamma=0,
+                         learning_rate=0.01, max_depth=5,
+                         min_child_weight=1, n_estimators=4000,
+                         subsample=0.8,
+                         random_state=8, nthread=-1)
+
+modelfit(xgb1, X_train, y_train, test_X, test_y)
+
+# Tune max_depth and min_child_weight
+
+param_test1 = {
+ 'max_depth':range(3,10,2),
+ 'min_child_weight':range(1,6,2)
+}
 
 # TO DO
+# https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
+# https://www.kaggle.com/serigne/stacked-regressions-top-4-on-leaderboard
 # create git branch wiht the different feature engineer and transformations
 # in order to select the best performer models.
