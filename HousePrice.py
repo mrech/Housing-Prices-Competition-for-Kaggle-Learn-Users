@@ -10,6 +10,7 @@ from sklearn.preprocessing import StandardScaler, RobustScaler, MaxAbsScaler
 from sklearn.model_selection import KFold, cross_val_score, train_test_split
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet
 from sklearn.kernel_ridge import KernelRidge
+from sklearn.ensemble import GradientBoostingRegressor
 
 # 0. IMPORT DATASETS
 
@@ -1020,7 +1021,7 @@ params_comb = []
 score = []
 for a in alpha_list:
     for l in l1:
-        params_comb.append(str(a) + '-' + str(l))
+        params_comb.append(str(a) + ';' + str(l))
         ENet = ElasticNet(alpha=a, l1_ratio=l, random_state=4, max_iter=2000)
         score.append(cv_rmse(ENet).mean())
 
@@ -1070,6 +1071,24 @@ KRR_test_prediction = KRR_fit.predict(test_X)
 rmse_test = np.sqrt(
     np.sum(np.power(test_y-KRR_test_prediction, 2))/len(test_y))
 print('rmse_test with kernel ridge regression: ', rmse_test)
+
+# 3.5 Gradient Boosting
+print('\n============= Gradient Boosting Regression =============\n')
+# learns a non-linear function in the space induced by respective kernel and the data
+
+GBR = GradientBoostingRegressor(n_estimators=4000, learning_rate=0.01,
+                                max_depth=3, max_features='sqrt',
+                                loss='huber', random_state=5)
+score = cv_rmse(GBR)
+print("Gradient Boosting Regression cv score: {:.4f} ({:.4f})".format(
+    score.mean(), score.std()))
+
+GBR_fit = GBR.fit(X_train, y_train)
+GBR_test_prediction = GBR_fit.predict(test_X)
+
+rmse_test = np.sqrt(
+    np.sum(np.power(test_y-GBR_test_prediction, 2))/len(test_y))
+print('rmse_test with gradient boosting regression: ', rmse_test)
 
 
 # TO DO
