@@ -1136,24 +1136,23 @@ xgb1 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.8, gamm
 
 modelfit(xgb1, X_train, y_train, test_X, test_y)
 
-# 1. Tune max_depth and min_child_weight
-
-param_test1 = {
-    'max_depth': range(3, 10, 2),
-    'min_child_weight': range(1, 6, 2)
-}
-
 # Grid search implementation
-
+# create custom scoring:
 
 def custom_rmse(y_true, y_pred):
     custom_rmse = np.sqrt(
         np.sum(np.power(y_true-y_pred, 2))/len(y_true))
     return custom_rmse
 
-
 # score will negate the return value
 rmse_score = make_scorer(custom_rmse, greater_is_better=False)
+
+# 1. Tune max_depth and min_child_weight
+
+param_test1 = {
+    'max_depth': range(3, 10, 2),
+    'min_child_weight': range(1, 6, 2)
+}
 
 gsearch1 = GridSearchCV(estimator=xgb1, param_grid=param_test1,
                         scoring=rmse_score, n_jobs=-1, cv=5)
@@ -1168,6 +1167,112 @@ for i in range(len(gsearch1.cv_results_.get('params'))):
 gsearch1.best_estimator_ 
 gsearch1.best_params_
 -(gsearch1.best_score_)
+
+print('------------- Grid Search 1. -------------')
+print('The ideal values are {\'max_depth\': 5, \'min_child_weight\': 5}\n')
+print('mean_rmse_test: 0.1166282813064537')
+
+# Let's narrow the range to one value above and below the optimum
+
+param_test2 = {
+    'max_depth': [4,5,6],
+    'min_child_weight': [4,5,6]
+}
+
+gsearch2 = GridSearchCV(estimator=xgb1, param_grid=param_test2,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch2.fit(X_train, y_train)
+
+for i in range(len(gsearch2.cv_results_.get('params'))):
+    print('mean:', gsearch2.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch2.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch2.cv_results_.get('params')[i])
+
+gsearch2.best_estimator_ 
+gsearch2.best_params_
+-(gsearch2.best_score_)
+
+print('------------- Grid Search 2. -------------')
+print('The ideal values are {\'max_depth\': 6, \'min_child_weight\': 5}\n')
+print('mean_rmse_test: 0.11637357851737258')
+
+# Let's try for max_depth greater than 6
+
+param_test2b = {
+    'max_depth': [6, 8, 10, 12],
+    'min_child_weight': [5]
+}
+
+gsearch2b = GridSearchCV(estimator=xgb1, param_grid=param_test2b,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch2b.fit(X_train, y_train)
+
+for i in range(len(gsearch2b.cv_results_.get('params'))):
+    print('mean:', gsearch2b.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch2b.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch2b.cv_results_.get('params')[i])
+
+gsearch2b.best_estimator_ 
+gsearch2b.best_params_
+-(gsearch2b.best_score_)
+
+print('------------- Grid Search 2b. -------------')
+print('The ideal values are {\'max_depth\': 6}\n')
+print('mean_rmse_test: 0.11637357851737258')
+
+# 2. Tune gamma
+
+xgb2 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.8, gamma=0,
+                        learning_rate=0.01, max_depth=6,
+                        min_child_weight=5, n_estimators=4000,
+                        subsample=0.8,
+                        random_state=8, nthread=-1)
+
+param_test3 = {
+ 'gamma':[i/10.0 for i in range(0,5)]
+}
+
+gsearch3 = GridSearchCV(estimator=xgb2, param_grid=param_test3,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch3.fit(X_train, y_train)
+
+for i in range(len(gsearch3.cv_results_.get('params'))):
+    print('mean:', gsearch3.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch3.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch3.cv_results_.get('params')[i])
+
+gsearch3.best_estimator_ 
+gsearch3.best_params_
+-(gsearch3.best_score_)
+
+print('------------- Grid Search 3. -------------')
+print('The ideal values are {\'gamma\': 0.0}\n')
+print('mean_rmse_test: 0.11662111753808185')
+
+param_test3b = {
+ 'gamma':[i/100.0 for i in range(0,5)]
+}
+
+gsearch3b = GridSearchCV(estimator=xgb2, param_grid=param_test3b,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch3b.fit(X_train, y_train)
+
+for i in range(len(gsearch3b.cv_results_.get('params'))):
+    print('mean:', gsearch3b.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch3b.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch3b.cv_results_.get('params')[i])
+
+gsearch3b.best_estimator_ 
+gsearch3b.best_params_
+-(gsearch3b.best_score_)
+
+print('------------- Grid Search 3b. -------------')
+print('The ideal values are {\'gamma\': 0.02}\n')
+print('mean_rmse_test: 0.11612651170789338')
 
 
 # TO DO
