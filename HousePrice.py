@@ -13,6 +13,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.ensemble import GradientBoostingRegressor
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import make_scorer
 
 # 0. IMPORT DATASETS
 
@@ -1097,6 +1098,7 @@ print('\n============= Extreme Gradient Boosting Regressor =============\n')
 
 # Define a function for creating XGBoost models and check their performance with cv
 
+
 def modelfit(alg, X, y, test_X, test_y, useTrainCV=True, cv_folds=5, early_stopping_rounds=50):
 
     if useTrainCV:
@@ -1122,24 +1124,51 @@ def modelfit(alg, X, y, test_X, test_y, useTrainCV=True, cv_folds=5, early_stopp
     feat_imp.plot(kind='bar', title='Feature Importances')
     plt.ylabel('Feature Importance Score')
     ax.tick_params(axis="x", labelsize=7)
-    
+
 
 # set some initial values of other parameters.
 
-xgb1 = xgb.XGBRegressor(objective ='reg:squarederror', colsample_bytree=0.8, gamma=0,
-                         learning_rate=0.01, max_depth=5,
-                         min_child_weight=1, n_estimators=4000,
-                         subsample=0.8,
-                         random_state=8, nthread=-1)
+xgb1 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.8, gamma=0,
+                        learning_rate=0.01, max_depth=5,
+                        min_child_weight=1, n_estimators=4000,
+                        subsample=0.8,
+                        random_state=8, nthread=-1)
 
 modelfit(xgb1, X_train, y_train, test_X, test_y)
 
-# Tune max_depth and min_child_weight
+# 1. Tune max_depth and min_child_weight
 
 param_test1 = {
- 'max_depth':range(3,10,2),
- 'min_child_weight':range(1,6,2)
+    'max_depth': range(3, 10, 2),
+    'min_child_weight': range(1, 6, 2)
 }
+
+# Grid search implementation
+
+
+def custom_rmse(y_true, y_pred):
+    custom_rmse = np.sqrt(
+        np.sum(np.power(y_true-y_pred, 2))/len(y_true))
+    return custom_rmse
+
+
+# score will negate the return value
+rmse_score = make_scorer(custom_rmse, greater_is_better=False)
+
+gsearch1 = GridSearchCV(estimator=xgb1, param_grid=param_test1,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch1.fit(X_train, y_train)
+
+for i in range(len(gsearch1.cv_results_.get('params'))):
+    print('mean:', gsearch1.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch1.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch1.cv_results_.get('params')[i])
+
+gsearch1.best_estimator_ 
+gsearch1.best_params_
+-(gsearch1.best_score_)
+
 
 # TO DO
 # https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
