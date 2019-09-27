@@ -15,6 +15,10 @@ import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer
 
+import warnings
+def ignore_warn(*args, **kwargs):
+    pass
+warnings.warn = ignore_warn #ignore annoying warning (from sklearn and seaborn)
 # 0. IMPORT DATASETS
 
 # Alternatuive: keep_default_na = False
@@ -1455,6 +1459,43 @@ gsearch6b.best_params_
 print('------------- Grid Search 6. -------------')
 print('The ideal values are {\'reg_lambda\': 1}\n')
 print('mean_rmse_test: 0.1154139814567387')
+
+# 5. Reducing Learning Rate
+'''
+param_test7 = {
+ 'learning_rate':[0.1, 0.01, 0.001, 0.002, 0.004, 0.006, 0.008]
+}
+
+gsearch7 = GridSearchCV(estimator=xgb5, param_grid=param_test7,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch7.fit(X_train, y_train)
+
+for i in range(len(gsearch7.cv_results_.get('params'))):
+    print('mean:', gsearch7.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch7.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch7.cv_results_.get('params')[i])
+
+gsearch7.best_estimator_ 
+gsearch7.best_params_
+-(gsearch7.best_score_)
+'''
+
+print('------------- Grid Search 7. -------------')
+print('The ideal values are {\'learning_rate\': 0.01}\n')
+print('mean_rmse_test: 0.1154139814567387')
+
+score = cv_rmse(xgb5)
+print('Extreme Gradient Boosting cv score: {:.4f} ({:.4f})'.format(
+    score.mean(), score.std()))
+
+XGB_fit = xgb5.fit(X_train, y_train)
+XGB_test_prediction = XGB_fit.predict(test_X)
+
+rmse_test = np.sqrt(
+    np.sum(np.power(test_y-XGB_test_prediction, 2))/len(test_y))
+print('rmse_test with extreme gradient boosting regressor: ', rmse_test)
+
 
 # TO DO
 # https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
