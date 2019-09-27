@@ -1341,6 +1341,121 @@ print('------------- Grid Search 4b. -------------')
 print('The ideal values are {\'colsample_bytree\': 0.6, \'subsample\': 0.8}\n')
 print('mean_rmse_test: 0.11555491434932266')
 
+xgb4 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.6, gamma=0.02,
+                        learning_rate=0.01, max_depth=6,
+                        min_child_weight=5, n_estimators=4000,
+                        subsample=0.8,
+                        random_state=8, nthread=-1)
+
+modelfit(xgb4, X_train, y_train, test_X, test_y)
+
+# 4. Tuning the regularization Parameters
+
+'''
+param_test5 = {
+ 'reg_alpha':[0, 1e-5, 1e-2, 0.1, 1, 100]
+}
+
+gsearch5 = GridSearchCV(estimator=xgb4, param_grid=param_test5,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch5.fit(X_train, y_train)
+
+for i in range(len(gsearch5.cv_results_.get('params'))):
+    print('mean:', gsearch5.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch5.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch5.cv_results_.get('params')[i])
+
+gsearch5.best_estimator_ 
+gsearch5.best_params_
+-(gsearch5.best_score_)
+'''
+
+print('------------- Grid Search 5. -------------')
+print('The ideal values are {\'reg_alpha\': 0.1}\n')
+print('mean_rmse_test: 0.1154139814567387')
+
+# CV score is less than the previous case. Let's try values closer to optimum 0.1
+'''
+param_test5b = {
+ 'reg_alpha':[1e-2, 0.05,  0.1, 0.5, 1]
+}
+
+gsearch5b = GridSearchCV(estimator=xgb4, param_grid=param_test5b,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch5b.fit(X_train, y_train)
+
+for i in range(len(gsearch5b.cv_results_.get('params'))):
+    print('mean:', gsearch5b.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch5b.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch5b.cv_results_.get('params')[i])
+
+gsearch5b.best_estimator_ 
+gsearch5b.best_params_
+-(gsearch5b.best_score_)
+'''
+print('------------- Grid Search 5b. -------------')
+print('The ideal values are {\'reg_alpha\': 0.1}\n')
+print('mean_rmse_test: 0.1154139814567387')
+
+xgb5 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.6, gamma=0.02,
+                        learning_rate=0.01, max_depth=6,
+                        min_child_weight=5, n_estimators=4000,
+                        subsample=0.8, reg_alpha = 0.1,
+                        random_state=8, nthread=-1)
+
+modelfit(xgb5, X_train, y_train, test_X, test_y)
+
+# Tune the regularization params lambda
+'''
+param_test6 = {
+ 'reg_lambda':[0, 1e-5, 1e-2, 0.1, 1, 100]
+}
+
+gsearch6 = GridSearchCV(estimator=xgb5, param_grid=param_test6,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch6.fit(X_train, y_train)
+
+for i in range(len(gsearch6.cv_results_.get('params'))):
+    print('mean:', gsearch6.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch6.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch6.cv_results_.get('params')[i])
+
+gsearch6.best_estimator_ 
+gsearch6.best_params_
+-(gsearch6.best_score_)
+'''
+print('------------- Grid Search 6. -------------')
+print('The ideal values are {\'reg_lambda\': 1}\n')
+print('mean_rmse_test: 0.1154139814567387')
+
+# Try a closer range
+
+'''
+param_test6b = {
+ 'reg_lambda':[0.1, 1, 1.5, 2, 10]
+}
+
+gsearch6b = GridSearchCV(estimator=xgb5, param_grid=param_test6b,
+                        scoring=rmse_score, n_jobs=-1, cv=5)
+
+gsearch6b.fit(X_train, y_train)
+
+for i in range(len(gsearch6b.cv_results_.get('params'))):
+    print('mean:', gsearch6b.cv_results_.get('mean_test_score')[i],
+          '\tstd:',  gsearch6b.cv_results_.get('std_test_score')[i],
+          '\tparams:', gsearch6b.cv_results_.get('params')[i])
+
+gsearch6b.best_estimator_ 
+gsearch6b.best_params_
+-(gsearch6b.best_score_)
+'''
+print('------------- Grid Search 6. -------------')
+print('The ideal values are {\'reg_lambda\': 1}\n')
+print('mean_rmse_test: 0.1154139814567387')
+
 # TO DO
 # https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
 # Step 5: Tuning Regularization Parameters
