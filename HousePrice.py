@@ -14,6 +14,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer
+from sklearn.base import BaseEstimator, clone
 
 import warnings
 def ignore_warn(*args, **kwargs):
@@ -1151,7 +1152,7 @@ def custom_rmse(y_true, y_pred):
 # score will negate the return value
 rmse_score = make_scorer(custom_rmse, greater_is_better=False)
 
-# 1. Tune max_depth and min_child_weight
+# 3.6.1. Tune max_depth and min_child_weight
 
 '''
 param_test1 = {
@@ -1230,7 +1231,7 @@ print('------------- Grid Search 2b. -------------')
 print('The ideal values are {\'max_depth\': 6}\n')
 print('mean_rmse_test: 0.11637357851737258')
 
-# 2. Tune gamma
+# 3.6.2. Tune gamma
 
 xgb2 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.8, gamma=0,
                         learning_rate=0.01, max_depth=6,
@@ -1293,7 +1294,7 @@ xgb3 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.8, gamm
 
 modelfit(xgb3, X_train, y_train, test_X, test_y)
 
-# 3. Tune subsample and colsample_bytree
+# 3.6.3. Tune subsample and colsample_bytree
 '''
 param_test4 = {
  'subsample':[i/10.0 for i in range(6,10)],
@@ -1353,7 +1354,7 @@ xgb4 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.6, gamm
 
 modelfit(xgb4, X_train, y_train, test_X, test_y)
 
-# 4. Tuning the regularization Parameters
+# 3.6.4. Tuning the regularization Parameters
 
 '''
 param_test5 = {
@@ -1460,7 +1461,7 @@ print('------------- Grid Search 6. -------------')
 print('The ideal values are {\'reg_lambda\': 1}\n')
 print('mean_rmse_test: 0.1154139814567387')
 
-# 5. Reducing Learning Rate
+# 3.6.5. Reducing Learning Rate
 '''
 param_test7 = {
  'learning_rate':[0.1, 0.01, 0.001, 0.002, 0.004, 0.006, 0.008]
@@ -1496,10 +1497,44 @@ rmse_test = np.sqrt(
     np.sum(np.power(test_y-XGB_test_prediction, 2))/len(test_y))
 print('rmse_test with extreme gradient boosting regressor: ', rmse_test)
 
+# 4 STACKING MODELS
+# 4.1 Averaging base models
+
+print('\n============= Staking: Averaging base models =============\n')
+
+class AveragingModels(BaseEstimator):
+    # initiate the attribute
+    def __init__(self, models):
+        self.models = models
+
+    # define clones of the original models to fit the data
+    def fit(self, X, y):
+        self.models_ = [clone(x) for x in self.models]
+
+        # Train cloned base models
+        for model in self.models_:
+            model.fit(X, y)
+
+        return self
+
+    # Average the predictions for cloned models
+    def predict(self, X):
+        prediction = np.stack([model.predict(X) for model in self.models_], axis = 1)
+
+        return np.mean(prediction, axis=1)
+
+# check for corrleation between the different models predictions
+# less correlation less variance
+
+averaged_models = AveragingModels(models = (xgb5, GBR, KRR, ENet, lasso)) 
+
+score = cv_rmse(averaged_models)
+
+print('Averaged base models cv score: {:.4f} ({:.4f})'.format(
+    score.mean(), score.std()))
 
 # TO DO
-# https://www.analyticsvidhya.com/blog/2016/03/complete-guide-parameter-tuning-xgboost-with-codes-python/
-# Step 5: Tuning Regularization Parameters
+# https://mlwave.com/kaggle-ensembling-guide/
 # https://www.kaggle.com/serigne/stacked-regressions-top-4-on-leaderboard
 # create git branch wiht the different feature engineer and transformations
 # in order to select the best performer models.
