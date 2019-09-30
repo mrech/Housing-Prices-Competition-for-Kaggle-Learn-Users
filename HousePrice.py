@@ -14,12 +14,17 @@ from sklearn.ensemble import GradientBoostingRegressor
 import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import make_scorer
-from sklearn.base import BaseEstimator, clone
+from sklearn.base import BaseEstimator, RegressorMixin, clone
 
 import warnings
+
+
 def ignore_warn(*args, **kwargs):
     pass
-warnings.warn = ignore_warn #ignore annoying warning (from sklearn and seaborn)
+
+
+# ignore annoying warning (from sklearn and seaborn)
+warnings.warn = ignore_warn
 # 0. IMPORT DATASETS
 
 # Alternatuive: keep_default_na = False
@@ -1144,10 +1149,12 @@ modelfit(xgb1, X_train, y_train, test_X, test_y)
 # Grid search implementation
 # create custom scoring:
 
+
 def custom_rmse(y_true, y_pred):
     custom_rmse = np.sqrt(
         np.sum(np.power(y_true-y_pred, 2))/len(y_true))
     return custom_rmse
+
 
 # score will negate the return value
 rmse_score = make_scorer(custom_rmse, greater_is_better=False)
@@ -1407,7 +1414,7 @@ print('mean_rmse_test: 0.1154139814567387')
 xgb5 = xgb.XGBRegressor(objective='reg:squarederror', colsample_bytree=0.6, gamma=0.02,
                         learning_rate=0.01, max_depth=6,
                         min_child_weight=5, n_estimators=4000,
-                        subsample=0.8, reg_alpha = 0.1,
+                        subsample=0.8, reg_alpha=0.1,
                         random_state=8, nthread=-1)
 
 modelfit(xgb5, X_train, y_train, test_X, test_y)
@@ -1502,6 +1509,7 @@ print('rmse_test with extreme gradient boosting regressor: ', rmse_test)
 
 print('\n============= Staking: Averaging base models =============\n')
 
+
 class AveragingModels(BaseEstimator):
     # initiate the attribute
     def __init__(self, models):
@@ -1519,19 +1527,73 @@ class AveragingModels(BaseEstimator):
 
     # Average the predictions for cloned models
     def predict(self, X):
-        prediction = np.stack([model.predict(X) for model in self.models_], axis = 1)
+        prediction = np.stack([model.predict(X)
+                               for model in self.models_], axis=1)
 
         return np.mean(prediction, axis=1)
 
 # check for corrleation between the different models predictions
 # less correlation less variance
 
-averaged_models = AveragingModels(models = (xgb5, GBR, KRR, ENet, lasso)) 
+
+averaged_models = AveragingModels(models=(xgb5, GBR, KRR, ENet, lasso))
 
 score = cv_rmse(averaged_models)
 
 print('Averaged base models cv score: {:.4f} ({:.4f})'.format(
     score.mean(), score.std()))
+
+# 4.2 Adding a Meta-model
+
+print('\n============= Staking: Adding a Meta-model =============\n')
+
+
+class MetaModel(BaseEstimator, RegressorMixin):
+    def __init__(self, base_models, meta_model, n_fold=5):
+        self.base_models = base_models
+        self.meta_model = meta_model
+        self.n_fold = n_fold
+
+    # fit the data on clones of the original models
+    def fit(self, X, y):
+        # initiate empty lists for the base models
+        self.base_models_ = [list() for x in self.base_models]
+        # colone the meta_model
+        self.meta_model_ = clone(self.meta_model)
+        kf = KFold(n_splits=self.n_fold, shuffle=True, random_state=345)
+
+        # train the cloned based models then create out-of-fold predictions
+        # needed as new features to train the cloned meta-model
+        out_of_fold_predictions = np.zeros((X.shape[0], len(self.base_models)))
+        for i, model in enumerate(self.base_models):
+            for train_index, holdout_index in kf.split(X, y):
+                instance = clone(model)
+                self.base_models_[i].append(instance)
+                instance.fit(X.iloc[train_index], y.iloc[train_index])
+                y_pred = instance.predict(X.iloc[holdout_index])
+                out_of_fold_predictions[holdout_index, i] = y_pred
+
+        # Train the cloned meta-model using the out-of-fold predictions as new feature
+        self.meta_model_.fit(out_of_fold_predictions, y)
+        return self
+
+    # Do the predictions all base models on the test data and average the predictions
+    # for the the final prediction which is done by the meta-model
+    def predict(self, X):
+        meta_features = np.stack([np.stack([model.predict(X)
+                                  for model in base_models], axis=1).mean(axis=1)
+                                  for base_models in self.base_models_], axis = 1)
+        return self.meta_model_.predict(meta_features)
+
+
+meta_model = MetaModel(base_models=(xgb5, GBR, KRR, ENet),
+                       meta_model=lasso)
+
+score = cv_rmse(meta_model)
+
+print('Meta-model cv score: {:.4f} ({:.4f})'.format(
+    score.mean(), score.std()))
+
 
 # TO DO
 # https://mlwave.com/kaggle-ensembling-guide/
