@@ -1536,7 +1536,7 @@ class AveragingModels(BaseEstimator):
 # less correlation less variance
 
 
-averaged_models = AveragingModels(models=(xgb5, GBR, KRR, ENet, lasso))
+averaged_models = AveragingModels(models=(GBR, KRR, ENet, lasso))
 
 score = cv_rmse(averaged_models)
 
@@ -1586,7 +1586,7 @@ class MetaModel(BaseEstimator, RegressorMixin):
         return self.meta_model_.predict(meta_features)
 
 
-meta_model = MetaModel(base_models=(xgb5, GBR, KRR, ENet),
+meta_model = MetaModel(base_models=(GBR, KRR, ENet),
                        meta_model=lasso)
 
 score = cv_rmse(meta_model)
@@ -1594,6 +1594,31 @@ score = cv_rmse(meta_model)
 print('Meta-model cv score: {:.4f} ({:.4f})'.format(
     score.mean(), score.std()))
 
+# 5. Ensemblig model
+
+print('\n============= Ensembling: Meta-model and Extreme Gradient Boosting =============\n')
+
+def rmse(y, y_pred):
+    return np.sqrt(np.sum(np.power(y-y_pred, 2))/len(y))
+
+# Final training on test data
+meta_model.fit(X_train, y_train)
+meta_model_train_pred = meta_model.predict(X_train)
+meta_model_pred = np.exp(meta_model.predict(X_test))
+
+print('Rmse on training using meta model', rmse(y_train, meta_model_train_pred))
+# 0.07405068020014952
+
+# add extreme gradient boosting
+xgb5.fit(X_train, y_train)
+xgb5_train_pred = xgb5.predict(X_train)
+# np.exp is the inverse of the log to convert to the original scale
+xgb5_pred = np.exp(xgb5.predict(X_test))
+
+print('Rmse on training using extreme gradient boosting', rmse(y_train, xgb5_train_pred))
+# 0.05470222786474214
+
+# Implement an optimization function to find optimal ensemblig weight.
 
 # TO DO
 # https://mlwave.com/kaggle-ensembling-guide/
