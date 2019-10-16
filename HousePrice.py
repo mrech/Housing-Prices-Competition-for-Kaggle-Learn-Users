@@ -1618,9 +1618,26 @@ xgb5_pred = np.exp(xgb5.predict(X_test))
 print('Rmse on training using extreme gradient boosting', rmse(y_train, xgb5_train_pred))
 # 0.05470222786474214
 
-# Implement an optimization function to find optimal ensemblig weight.
+# TODO: Implement an optimization function to find optimal ensemblig weight.
 
-# TO DO
+print('RMSE score on train data:')
+print(rmse(y_train, meta_model_train_pred*0.70 +
+           xgb5_train_pred*0.30))
+
+# Ensemble prediction
+ensemble = meta_model_pred*0.70 + xgb5_pred*0.30
+
+# Prepare submission file
+sub = pd.DataFrame()
+sub['Id'] = dt_test['Id']
+sub['SalePrice'] = ensemble
+sub.to_csv('submission.csv', index=False)
+
+# TODO
+# create git branch wiht the different feature engineer and transformations
+# in order to select the best performer models.
+
+# References:
 # https://mlwave.com/kaggle-ensembling-guide/
 # https://www.kaggle.com/serigne/stacked-regressions-top-4-on-leaderboard
 # create git branch wiht the different feature engineer and transformations
